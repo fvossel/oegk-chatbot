@@ -80,4 +80,4 @@ For issues with this chatbot, please open an issue in this GitHub repository.
 
 ## 📄 License
 
-[MIT License](LICENSE) – see LICENSE file for details.
+[Apache License 2.0](LICENSE) – see LICENSE file for details.
