@@ -1,1 +1,19 @@
 
+[theme]
+base="light"
+
+[server]
+runOnSave = true
+
+[browser]
+gatherUsageStats = false
+
+[ui]
+hideTopBar = true
+
+[client]
+showErrorDetails = false
+
+[global]
+developmentMode = false
+
