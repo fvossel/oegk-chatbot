@@ -1,0 +1,1622 @@
+[
+    {
+        "uri": "oeo:OEO_00390071",
+        "label": "has study descriptor tag",
+        "description": "'has study descriptor tag' has study descriptor tag is a relation between a scenario bundle and an oeo class which is used as a study descriptor. The classes in the domain are annotated with oekg in the OEO and are manually chosen. Objects have to be one of the entries in range.",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00020227",
+                "label": "scenario bundle"
+            }
+        ],
+        "range": [
+            {
+                "uri": "oeo:OEO_00000143",
+                "label": "electricity grid"
+            },
+            {
+                "uri": "oeo:OEO_00000199",
+                "label": "greenhouse gas emission"
+            },
+            {
+                "uri": "oeo:OEO_00000293",
+                "label": "negative emission"
+            },
+            {
+                "uri": "oeo:OEO_00010212",
+                "label": "decarbonisation pathway"
+            },
+            {
+                "uri": "oeo:OEO_00010444",
+                "label": "sufficiency"
+            },
+            {
+                "uri": "oeo:OEO_00020004",
+                "label": "gas grid"
+            },
+            {
+                "uri": "oeo:OEO_00020005",
+                "label": "heating grid"
+            },
+            {
+                "uri": "oeo:OEO_00020254",
+                "label": "electrical energy share"
+            },
+            {
+                "uri": "oeo:OEO_00020373",
+                "label": "study report due to legal obligation"
+            },
+            {
+                "uri": "oeo:OEO_00020406",
+                "label": "model coupling"
+            },
+            {
+                "uri": "oeo:OEO_00020408",
+                "label": "sector coupling"
+            },
+            {
+                "uri": "oeo:OEO_00140049",
+                "label": "energy conversion efficiency"
+            },
+            {
+                "uri": "oeo:OEO_00140133",
+                "label": "renewable energy share"
+            },
+            {
+                "uri": "oeo:OEO_00140146",
+                "label": "energy demand"
+            },
+            {
+                "uri": "oeo:OEO_00140151",
+                "label": "policy instrument"
+            },
+            {
+                "uri": "oeo:OEO_00240012",
+                "label": "gross electricity generation"
+            },
+            {
+                "uri": "oeo:OEO_00260007",
+                "label": "CO2 emission"
+            },
+            {
+                "uri": "oeo:OEO_00340006",
+                "label": "regionalisation"
+            },
+            {
+                "uri": "oeo:OEO_00360000",
+                "label": "acceptance"
+            },
+            {
+                "uri": "oeo:OEO_00360002",
+                "label": "model intercomparison study"
+            },
+            {
+                "uri": "oeo:OEO_00360003",
+                "label": "scenario projection comparison"
+            },
+            {
+                "uri": "oeo:OEO_00360007",
+                "label": "flexibility"
+            },
+            {
+                "uri": "oeo:OEO_00360015",
+                "label": "resilience"
+            },
+            {
+                "uri": "oeo:OEO_00330023",
+                "label": "life cycle assessment"
+            },
+            {
+                "uri": "oeo:OEO_00140040",
+                "label": "demand"
+            },
+            {
+                "uri": "oeo:OEO_00140050",
+                "label": "efficiency value"
+            },
+            {
+                "uri": "oeo:OEO_00050016",
+                "label": "final energy consumption value"
+            },
+            {
+                "uri": "oeo:OEO_00360011",
+                "label": "process climate neutrality"
+            },
+            {
+                "uri": "oeo:OEO_00360014",
+                "label": "material climate neutrality"
+            },
+            {
+                "uri": "oeo:OEO_00050018",
+                "label": "primary energy consumption value"
+            },
+            {
+                "uri": "oeo:OEO_00240013",
+                "label": "net electricity generation"
+            }
+        ]
+    },
+    {
+        "uri": "obo:BFO_0000051",
+        "label": "has part",
+        "description": "'has part' a core relation that holds between a whole and its part. A bundle can have four different parts but is not required any. Objects are an URI of the type specified in the range.",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00020227",
+                "label": "scenario bundle"
+            }
+        ],
+        "range": [
+            {
+                "uri": "oeo:OEO_00000172",
+                "label": "framework factsheet"
+            },
+            {
+                "uri": "oeo:OEO_00020012",
+                "label": "study report"
+            },
+            {
+                "uri": "oeo:OEO_00000365",
+                "label": "scenario factsheet"
+            },
+            {
+                "uri": "oeo:OEO_00000277",
+                "label": "model factsheet"
+            }
+        ]
+    },
+    {
+        "uri": "oeo:OEO_00390079",
+        "label": "based on sector division",
+        "description": "'based on sector division' based on sector division is a relation between a scenario bundle and a sector division it is based on. Any subclass of sector division plus their individuals are allowed but currently only individuals are used. Objects have to be one of the entries in range.",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00020227",
+                "label": "scenario bundle"
+            }
+        ],
+        "range": [
+            {
+                "uri": "oeo:OEO_00000368",
+                "label": "sector division"
+            },
+            {
+                "uri": "oeo:OEO_00010055",
+                "label": "common reporting forma"
+            },
+            {
+                "uri": "oeo:OEO_00010402",
+                "label": "CRF-based sector division"
+            },
+            {
+                "uri": "oeo:OEO_00010403",
+                "label": "EU legislation sector division"
+            },
+            {
+                "uri": "oeo:OEO_00010407",
+                "label": "energy balance sector division"
+            },
+            {
+                "uri": "oeo:OEO_00010304",
+                "label": "NC/BR sector division"
+            },
+            {
+                "uri": "oeo:OEO_00010130",
+                "label": "EU emission sector division"
+            },
+            {
+                "uri": "oeo:OEO_00000242",
+                "label": "CRF sectors (IPCC 2006)"
+            },
+            {
+                "uri": "oeo:OEO_00000243",
+                "label": "CRF sectors (IPCC 1996)"
+            },
+            {
+                "uri": "oeo:OEO_00010056",
+                "label": "KSG sector division"
+            },
+            {
+                "uri": "oeo:OEO_00000355",
+                "label": "Renewable Energy Directive sector division"
+            },
+            {
+                "uri": "oeo:OEO_00000160",
+                "label": "Eurostat energy balance sector division"
+            },
+            {
+                "uri": "oeo:OEO_00000193",
+                "label": "German energy balance sector division"
+            },
+            {
+                "uri": "oeo:OEO_00010163",
+                "label": "GovReg sector division"
+            },
+            {
+                "uri": "oeo:OEO_00010204",
+                "label": "MMR sector division"
+            },
+            {
+                "uri": "oeo:OEO_00000291",
+                "label": "nace_ sectors"
+            },
+            {
+                "uri": "oeo:OEO_00360044",
+                "label": "BSI-KritisV sector division"
+            }
+        ]
+    },
+    {
+        "uri": "oeo:OEO_00020439",
+        "label": "covers sector (shortcut)",
+        "description": "'covers sector (shortcut)' A relation between a scenario bundle and a sector that is covered by the study the scenario bundle is about. It is a shortcut relation, see elucidation and associated sparql axiom.\n\nThis is a shortcut relation to relate 'scenatio bundle' to 'sector'. The original\nrelation 'covers sector' relates 'study' (process) to 'sector'.\nThe shortcut relation should be used to represents these statements:\n('scenario bundle 'is about' some 'scenario study'`) and ('scenario study' 'covers\nsector' some 'sector') Any subclass of sector plus their individuals are allowed but currently only individuals are used. Objects have to be one of the entries in range.",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00020227",
+                "label": "scenario bundle"
+            }
+        ],
+        "range": [
+            {
+                "uri": "oeo:OEO_00000367",
+                "label": "sector"
+            },
+            {
+                "uri": "oeo:OEO_00000128",
+                "label": "energy demand sector"
+            },
+            {
+                "uri": "oeo:OEO_00000158",
+                "label": "energy transformation sector"
+            },
+            {
+                "uri": "oeo:OEO_00000227",
+                "label": "industry sector"
+            },
+            {
+                "uri": "oeo:OEO_00010035",
+                "label": "agriculture, forestry and land use sector"
+            },
+            {
+                "uri": "oeo:OEO_00010036",
+                "label": "waste and wastewater sector"
+            },
+            {
+                "uri": "oeo:OEO_00010360",
+                "label": "source category"
+            },
+            {
+                "uri": "oeo:OEO_00010464",
+                "label": "subsector"
+            },
+            {
+                "uri": "oeo:OEO_00000213",
+                "label": "heating and cooling sector"
+            },
+            {
+                "uri": "oeo:OEO_00000214",
+                "label": "household sector"
+            },
+            {
+                "uri": "oeo:OEO_00000405",
+                "label": "commercial sector"
+            },
+            {
+                "uri": "oeo:OEO_00000422",
+                "label": "transport sector"
+            },
+            {
+                "uri": "oeo:OEO_00010034",
+                "label": "building sector"
+            },
+            {
+                "uri": "oeo:OEO_00000145",
+                "label": "electricity sector"
+            },
+            {
+                "uri": "oeo:OEO_00010319",
+                "label": "mineral oil refining sector"
+            },
+            {
+                "uri": "oeo:OEO_00010320",
+                "label": "international transport sector"
+            },
+            {
+                "uri": "oeo:OEO_00010043",
+                "label": "CRF sector (IPCC 2006): fuel combustion - other sectors"
+            },
+            {
+                "uri": "oeo:OEO_00010054",
+                "label": "CRF sector (IPCC 2006): agriculture, forestry and fishing"
+            },
+            {
+                "uri": "oeo:OEO_00010040",
+                "label": "CRF sector (IPCC 2006): energy industry"
+            },
+            {
+                "uri": "oeo:OEO_00010065",
+                "label": "KSG sector energy industry"
+            },
+            {
+                "uri": "oeo:OEO_00010158",
+                "label": "CRF sector (IPCC 2006): public electricity and heat production"
+            },
+            {
+                "uri": "oeo:OEO_00010160",
+                "label": "CRF sector (IPCC 2006): manufacture of solid fuels and other energy industries"
+            },
+            {
+                "uri": "oeo:OEO_00360042",
+                "label": "BSI-KritisV energy sector"
+            },
+            {
+                "uri": "oeo:OEO_00010041",
+                "label": "CRF sector (IPCC 2006): manufacturing industries and construction"
+            },
+            {
+                "uri": "oeo:OEO_00010046",
+                "label": "CRF sector (IPCC 2006): industrial processes and product use"
+            },
+            {
+                "uri": "oeo:OEO_00010066",
+                "label": "KSG sector industry"
+            },
+            {
+                "uri": "oeo:OEO_00010164",
+                "label": "CRF sector (IPCC 2006): mineral industry"
+            },
+            {
+                "uri": "oeo:OEO_00010165",
+                "label": "CRF sector (IPCC 2006): cement production"
+            },
+            {
+                "uri": "oeo:OEO_00010166",
+                "label": "CRF sector (IPCC 2006): chemical industry"
+            },
+            {
+                "uri": "oeo:OEO_00010167",
+                "label": "CRF sector (IPCC 2006): metal industry"
+            },
+            {
+                "uri": "oeo:OEO_00010168",
+                "label": "CRF sector (IPCC 2006): iron and steel production"
+            },
+            {
+                "uri": "oeo:OEO_00010169",
+                "label": "CRF sector (IPCC 2006): non-energy products from fuels and solvent use"
+            },
+            {
+                "uri": "oeo:OEO_00010170",
+                "label": "CRF sector (IPCC 2006): electronics industry"
+            },
+            {
+                "uri": "oeo:OEO_00010171",
+                "label": "CRF sector (IPCC 2006): product uses as substitutes for ozone depleting substances"
+            },
+            {
+                "uri": "oeo:OEO_00010172",
+                "label": "CRF sector (IPCC 2006): other product manufacture and use"
+            },
+            {
+                "uri": "oeo:OEO_00010173",
+                "label": "CRF sector (IPCC 2006): industrial processes and product use – other"
+            },
+            {
+                "uri": "oeo:OEO_00010307",
+                "label": "NC/BR sector: industry/industrial processes and product use"
+            },
+            {
+                "uri": "oeo:OEO_00010341",
+                "label": "CRF sector (IPCC 2006): lime production"
+            },
+            {
+                "uri": "oeo:OEO_00010342",
+                "label": "CRF sector (IPCC 2006): glass production"
+            },
+            {
+                "uri": "oeo:OEO_00010343",
+                "label": "CRF sector (IPCC 2006): other process uses of carbonates"
+            },
+            {
+                "uri": "oeo:OEO_00010344",
+                "label": "CRF sector (IPCC 2006): ammonia production"
+            },
+            {
+                "uri": "oeo:OEO_00010345",
+                "label": "CRF sector (IPCC 2006): nitric acid production"
+            },
+            {
+                "uri": "oeo:OEO_00010346",
+                "label": "CRF sector (IPCC 2006): adipic acid production"
+            },
+            {
+                "uri": "oeo:OEO_00010347",
+                "label": "CRF sector (IPCC 2006): caprolactam, gloxal and glyoxylic acid production"
+            },
+            {
+                "uri": "oeo:OEO_00010348",
+                "label": "CRF sector (IPCC 2006): carbide production"
+            },
+            {
+                "uri": "oeo:OEO_00010349",
+                "label": "CRF sector (IPCC 2006): titanium dioxide production CRF sector (IPCC 2006): soda ash production"
+            },
+            {
+                "uri": "oeo:OEO_00010350",
+                "label": "CRF sector (IPCC 2006): petrochemical and carbon"
+            },
+            {
+                "uri": "oeo:OEO_00010351",
+                "label": "black production CRF sector (IPCC 2006): fluorochemical production"
+            },
+            {
+                "uri": "oeo:OEO_00010352",
+                "label": "CRF sector (IPCC 2006): chemical industry – other CRF sector (IPCC 2006): ferroalloys production"
+            },
+            {
+                "uri": "oeo:OEO_00010353",
+                "label": "CRF sector (IPCC 2006): aluminium production CRF sector (IPCC 2006): magnesium production"
+            },
+            {
+                "uri": "oeo:OEO_00010354",
+                "label": "CRF sector (IPCC 2006): lead production"
+            },
+            {
+                "uri": "oeo:OEO_00010355",
+                "label": "CRF sector (IPCC 2006): zinc production"
+            },
+            {
+                "uri": "oeo:OEO_00010356",
+                "label": "CRF sector (IPCC 2006): metal industry – other"
+            },
+            {
+                "uri": "oeo:OEO_00010357",
+                "label": "CRF sector (IPCC 2006): integrated circuit or"
+            },
+            {
+                "uri": "oeo:OEO_00010358",
+                "label": "semiconductor"
+            },
+            {
+                "uri": "oeo:OEO_00010359",
+                "label": "CRF sector (IPCC 2006): TFT flat panel display"
+            },
+            {
+                "uri": "oeo:OEO_00010363",
+                "label": "CRF sector (IPCC 2006): photovoltaics CRF sector (IPCC 2006): heat transfer fluid"
+            },
+            {
+                "uri": "oeo:OEO_00010364",
+                "label": "CRF sector (IPCC 2006): electronics industry – other"
+            },
+            {
+                "uri": "oeo:OEO_00010365",
+                "label": "CRF sector (IPCC 2006): refrigeration and air"
+            },
+            {
+                "uri": "oeo:OEO_00010366",
+                "label": "conditioning"
+            },
+            {
+                "uri": "oeo:OEO_00010367",
+                "label": "CRF sector (IPCC 2006): foam blowing agents CRF sector (IPCC 2006): fire protection"
+            },
+            {
+                "uri": "oeo:OEO_00010368",
+                "label": "CRF sector (IPCC 2006): aerosols CRF sector (IPCC 2006): solvents"
+            },
+            {
+                "uri": "oeo:OEO_00010369",
+                "label": "CRF sector (IPCC 2006): other applications"
+            },
+            {
+                "uri": "oeo:OEO_00010370",
+                "label": ""
+            }
+        ]
+    },
+    {
+        "uri": "oeo:OEO_00020438",
+        "label": "covers technology (shortcut)",
+        "description": "'covers technology (shortcut)' A relation between a scenario bundle and a technology that is covered by the study the scenario bundle is about. It is a shortcut relation, see elucidation and associated sparql axiom.\n\nThis is a shortcut relation to relate 'scenatio bundle' to 'technology'. The original\nrelation 'covers technology' relates 'study' (process) to 'technology'.\nThe shortcut relation should be used to represents these statements:\n('scenario bundle 'is about' some 'scenario study'`) and ('scenario study' 'covers\ntechnology' some 'technology') Any subclass of technology plus their individuals are allowed but currently there are no individuals. Objects have to be one of the entries in range.",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00020227",
+                "label": "scenario bundle"
+            }
+        ],
+        "range": [
+            {
+                "uri": "oeo:OEO_00000407",
+                "label": "technology"
+            },
+            {
+                "uri": "oeo:OEO_00010449",
+                "label": "mobility technology"
+            },
+            {
+                "uri": "oeo:OEO_00010455",
+                "label": "carbon capture and storage technology"
+            },
+            {
+                "uri": "oeo:OEO_00010471",
+                "label": "non-energy use technology"
+            },
+            {
+                "uri": "oeo:OEO_00010485",
+                "label": "manufacturing technology"
+            },
+            {
+                "uri": "oeo:OEO_00020267",
+                "label": "energy technology"
+            },
+            {
+                "uri": "oeo:OEO_00020407",
+                "label": "sector coupling technology"
+            },
+            {
+                "uri": "oeo:OEO_00010450",
+                "label": "electric mobility technology"
+            },
+            {
+                "uri": "oeo:OEO_00010423",
+                "label": "power generation technology"
+            },
+            {
+                "uri": "oeo:OEO_00020308",
+                "label": "heat generation technology"
+            },
+            {
+                "uri": "oeo:OEO_00020347",
+                "label": "power-to-fuel technology"
+            },
+            {
+                "uri": "oeo:OEO_00020366",
+                "label": "energy storage technology"
+            },
+            {
+                "uri": "oeo:OEO_00010424",
+                "label": "wind power technology"
+            },
+            {
+                "uri": "oeo:OEO_00010427",
+                "label": "solar power technology"
+            },
+            {
+                "uri": "oeo:OEO_00010430",
+                "label": "geothermal power technology"
+            },
+            {
+                "uri": "oeo:OEO_00010431",
+                "label": "hydro power technology"
+            },
+            {
+                "uri": "oeo:OEO_00010439",
+                "label": "nuclear power technology"
+            },
+            {
+                "uri": "oeo:OEO_00010440",
+                "label": "fuel power technology"
+            },
+            {
+                "uri": "oeo:OEO_00020306",
+                "label": "geothermal heat technology"
+            },
+            {
+                "uri": "oeo:OEO_00020307",
+                "label": "solar thermal heat technology"
+            },
+            {
+                "uri": "oeo:OEO_00020348",
+                "label": "power-to-gas technology"
+            },
+            {
+                "uri": "oeo:OEO_00020351",
+                "label": "power-to-liquid technology"
+            },
+            {
+                "uri": "oeo:OEO_00020367",
+                "label": "electrical energy storage technology"
+            },
+            {
+                "uri": "oeo:OEO_00020368",
+                "label": "kinetic energy storage technology"
+            },
+            {
+                "uri": "oeo:OEO_00020369",
+                "label": "thermal energy storage technology"
+            },
+            {
+                "uri": "oeo:OEO_00020370",
+                "label": "chemical energy storage technology"
+            },
+            {
+                "uri": "oeo:OEO_00020372",
+                "label": "potential energy storage technology"
+            },
+            {
+                "uri": "oeo:OEO_00010425",
+                "label": "onshore wind power technology"
+            },
+            {
+                "uri": "oeo:OEO_00010426",
+                "label": "offshore wind power technology"
+            },
+            {
+                "uri": "oeo:OEO_00010428",
+                "label": "photovoltaic technology"
+            },
+            {
+                "uri": "oeo:OEO_00010429",
+                "label": "solar thermal power technology"
+            },
+            {
+                "uri": "oeo:OEO_00010432",
+                "label": "run of river power technology"
+            },
+            {
+                "uri": "oeo:OEO_00010433",
+                "label": "reservoir hydro storage power technology"
+            },
+            {
+                "uri": "oeo:OEO_00010434",
+                "label": "marine hydro power technology"
+            },
+            {
+                "uri": "oeo:OEO_00010438",
+                "label": "pumped hydro storage power technology"
+            },
+            {
+                "uri": "oeo:OEO_00010441",
+                "label": "coal power technology"
+            },
+            {
+                "uri": "oeo:OEO_00020349",
+                "label": "power-to-ammonia technology"
+            },
+            {
+                "uri": "oeo:OEO_00020350",
+                "label": "power-to-methane technology"
+            },
+            {
+                "uri": "oeo:OEO_00010435",
+                "label": "marine current energy technology"
+            },
+            {
+                "uri": "oeo:OEO_00010436",
+                "label": "marine tidal energy technology"
+            },
+            {
+                "uri": "oeo:OEO_00010437",
+                "label": "marine wave energy technology"
+            },
+            {
+                "uri": "oeo:OEO_00010442",
+                "label": "hard coal power technology"
+            },
+            {
+                "uri": "oeo:OEO_00010443",
+                "label": "lignite power technology"
+            }
+        ]
+    },
+    {
+        "uri": "oeo:OEO_00000508",
+        "label": "has contact person",
+        "description": "'has contact person' A relation that holds between an information content entity and the person to contact with issues about it. Objects are an URI of the type specified in the range.",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00020227",
+                "label": "scenario bundle"
+            }
+        ],
+        "range": [
+            {
+                "uri": "oeo:OEO_00000107",
+                "label": "contact person"
+            }
+        ]
+    },
+    {
+        "uri": "oeo:OEO_00000510",
+        "label": "has organisation",
+        "description": "'has organisation' A relation that holds between an information content entity and the organisation in which it was created. Objects are an URI of the type specified in the range.",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00020227",
+                "label": "scenario bundle"
+            }
+        ],
+        "range": [
+            {
+                "uri": "oeo:OEO_00030022",
+                "label": "organisation"
+            }
+        ]
+    },
+    {
+        "uri": "oeo:OEO_00000509",
+        "label": "has funding source",
+        "description": "'has funding source' A relation that holds between an entity and its source of funding. Objects are an URI of the type specified in the range.",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00020227",
+                "label": "scenario bundle"
+            }
+        ],
+        "range": [
+            {
+                "uri": "oeo:OEO_00090001",
+                "label": "funder"
+            }
+        ]
+    },
+    {
+        "uri": "dc:acronym",
+        "label": "dc:acronym",
+        "description": "'dc:acronym' An Alternative Label that consists of a shortened or abbreviated form of the rdfs:label and is used to denote the entity. ",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00020227",
+                "label": "scenario bundle"
+            },
+            {
+                "uri": "oeo:OEO_00000365",
+                "label": "scenario factsheet"
+            }
+        ],
+        "range": [
+            {
+                "uri": "Literal",
+                "label": "string"
+            }
+        ]
+    },
+    {
+        "uri": "dc:abstract",
+        "label": "dc:abstract",
+        "description": "'dc:abstract' A summary of the resource. Definition taken from Dublincore(2020).",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00020227",
+                "label": "scenario bundle"
+            },
+            {
+                "uri": "oeo:OEO_00000365",
+                "label": "scenario factsheet"
+            }
+        ],
+        "range": [
+            {
+                "uri": "Literal",
+                "label": "string"
+            }
+        ]
+    },
+    {
+        "uri": "oeo:OEO_00020432",
+        "label": "covers energy carrier (shortcut)",
+        "description": "'covers energy carrier (shortcut)' A relation between a scenario bundle and an energy carrier that is covered by the study the scenario bundle is about. It is a shortcut relation, see elucidation and associated sparql axiom.\n\nThis is a shortcut relation to relate 'scenatio bundle' to 'energy carrier'. The original relation 'covers energy carrier' relates 'study' (process) to 'energy carrier'.\nThe shortcut relation should be used to represents these statements:\n('scenario bundle 'is about' some 'scenario study'`) and ('scenario study' 'covers energy carrier' some 'energy carrier') Any subclass of energy carrier (and their individuals) plus classes inferred to be energy carrier are allowed. As of now there are no individuals. Objects have to be one of the entries in range.",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00020227",
+                "label": "scenario bundle"
+            }
+        ],
+        "range": [
+            {
+                "uri": "oeo:OEO_00020039",
+                "label": "energy carrier"
+            },
+            {
+                "uri": "oeo:OEO_00020050",
+                "label": "renewable energy carrier"
+            },
+            {
+                "uri": "oeo:OEO_00140078",
+                "label": "primary energy carrier"
+            },
+            {
+                "uri": "oeo:OEO_00140079",
+                "label": "secondary energy carrier"
+            },
+            {
+                "uri": "oeo:OEO_00140080",
+                "label": "final energy carrier"
+            },
+            {
+                "uri": "oeo:OEO_00010408",
+                "label": "Brent crude"
+            },
+            {
+                "uri": "oeo:OEO_00010019",
+                "label": "PtL fuel"
+            },
+            {
+                "uri": "oeo:OEO_00010409",
+                "label": "Western Texas Intermediate"
+            },
+            {
+                "uri": "oeo:OEO_00010383",
+                "label": "abated steam reforming hydrogen"
+            },
+            {
+                "uri": "oeo:OEO_00000062",
+                "label": "associated gas"
+            },
+            {
+                "uri": "oeo:OEO_00000066",
+                "label": "aviation gasoline"
+            },
+            {
+                "uri": "oeo:OEO_00010225",
+                "label": "biogenic industrial waste fuel"
+            },
+            {
+                "uri": "oeo:OEO_00000356",
+                "label": "biogenic municipal waste fuel"
+            },
+            {
+                "uri": "oeo:OEO_00010223",
+                "label": "biogenic waste fuel"
+            },
+            {
+                "uri": "oeo:OEO_00000077",
+                "label": "blast furnace gas"
+            },
+            {
+                "uri": "oeo:OEO_00010445",
+                "label": "blended liquid fuel"
+            },
+            {
+                "uri": "oeo:OEO_00000093",
+                "label": "coke oven gas"
+            },
+            {
+                "uri": "oeo:OEO_00000094",
+                "label": "coking coal"
+            },
+            {
+                "uri": "oeo:OEO_00000096",
+                "label": "colliery gas"
+            },
+            {
+                "uri": "oeo:OEO_00000099",
+                "label": "combustion fuel"
+            },
+            {
+                "uri": "oeo:OEO_00000102",
+                "label": "compressed air"
+            },
+            {
+                "uri": "oeo:OEO_00320013",
+                "label": "compressed biomethane"
+            },
+            {
+                "uri": "oeo:OEO_00320015",
+                "label": "compressed gas fuel"
+            },
+            {
+                "uri": "oeo:OEO_00320012",
+                "label": "compressed natural gas"
+            },
+            {
+                "uri": "oeo:OEO_00320014",
+                "label": "compressed synthetic methane"
+            },
+            {
+                "uri": "oeo:OEO_00000115",
+                "label": "crude oil"
+            },
+            {
+                "uri": "oeo:OEO_00010242",
+                "label": "diesel fuel"
+            },
+            {
+                "uri": "oeo:OEO_00010379",
+                "label": "electrolytic hydrogen"
+            },
+            {
+                "uri": "oeo:OEO_00020196",
+                "label": "fissile material entity"
+            },
+            {
+                "uri": "oeo:OEO_00000014",
+                "label": "fossil combustion fuel"
+            },
+            {
+                "uri": "oeo:OEO_00000131",
+                "label": "fossil diesel fuel"
+            },
+            {
+                "uri": "oeo:OEO_00010015",
+                "label": "fossil hydrogen"
+            },
+            {
+                "uri": "oeo:OEO_00010226",
+                "label": "fossil industrial waste fuel"
+            },
+            {
+                "uri": "oeo:OEO_00000299",
+                "label": "fossil municipal waste fuel"
+            },
+            {
+                "uri": "oeo:OEO_00010382",
+                "label": "fossil steam reforming hydrogen"
+            },
+            {
+                "uri": "oeo:OEO_00010224",
+                "label": "fossil waste fuel"
+            },
+            {
+                "uri": "oeo:OEO_00000181",
+                "label": "gas diesel oil"
+            },
+            {
+                "uri": "oeo:OEO_00010153",
+                "label": "gaseous biofuel"
+            },
+            {
+                "uri": "oeo:OEO_00010146",
+                "label": "gaseous combustion fuel"
+            },
+            {
+                "uri": "oeo:OEO_00010148",
+                "label": "gaseous fossil fuel"
+            },
+            {
+                "uri": "oeo:OEO_00010151",
+                "label": "gaseous renewable fuel"
+            },
+            {
+                "uri": "oeo:OEO_00010155",
+                "label": "gaseous synthetic fuel"
+            },
+            {
+                "uri": "oeo:OEO_00010241",
+                "label": "gasoline fuel"
+            },
+            {
+                "uri": "oeo:OEO_00000186",
+                "label": "gasworks gas"
+            },
+            {
+                "uri": "oeo:OEO_00000204",
+                "label": "hard coal"
+            },
+            {
+                "uri": "oeo:OEO_00000211",
+                "label": "heating oil"
+            },
+            {
+                "uri": "oeo:OEO_00000226",
+                "label": "industrial waste fuel"
+            },
+            {
+                "uri": "oeo:OEO_00000245",
+                "label": "jet fuel"
+            },
+            {
+                "uri": "oeo:OEO_00010237",
+                "label": "liquefied natural gas"
+            },
+            {
+                "uri": "oeo:OEO_00320011",
+                "label": "liquefied petroleum gas"
+            },
+            {
+                "uri": "oeo:OEO_00000257",
+                "label": "liquid air"
+            },
+            {
+                "uri": "oeo:OEO_00000258",
+                "label": "liquid biofuel"
+            },
+            {
+                "uri": "oeo:OEO_00010145",
+                "label": "liquid combustion fuel"
+            },
+            {
+                "uri": "oeo:OEO_00010147",
+                "label": "liquid fossil fuel"
+            },
+            {
+                "uri": "oeo:OEO_00010150",
+                "label": ""
+            },
+            {
+                "uri": "oeo:OEO_00010156",
+                "label": "liquid renewable fuel"
+            },
+            {
+                "uri": "oeo:OEO_00110000",
+                "label": "liquid synthetic fuel"
+            },
+            {
+                "uri": "oeo:OEO_00000263",
+                "label": "liquid water"
+            },
+            {
+                "uri": "oeo:OEO_00010316",
+                "label": "manufactured coal based gas"
+            },
+            {
+                "uri": "oeo:OEO_00010317",
+                "label": "mineral oil product"
+            },
+            {
+                "uri": "oeo:OEO_00000286",
+                "label": "mineral oil"
+            },
+            {
+                "uri": "oeo:OEO_00000290",
+                "label": "motor gasoline"
+            },
+            {
+                "uri": "oeo:OEO_00000292",
+                "label": "municipal waste fuel"
+            },
+            {
+                "uri": "oeo:OEO_00000297",
+                "label": "natural gas"
+            },
+            {
+                "uri": "oeo:OEO_00010337",
+                "label": "non associated gas"
+            },
+            {
+                "uri": "oeo:OEO_00010416",
+                "label": "non-sustainable biofuel"
+            },
+            {
+                "uri": "oeo:OEO_00000302",
+                "label": "nuclear electric hydrogen"
+            },
+            {
+                "uri": "oeo:OEO_00010327",
+                "label": "nuclear fuel"
+            },
+            {
+                "uri": "oeo:OEO_00000345",
+                "label": "petroleum coke"
+            },
+            {
+                "uri": "oeo:OEO_00010326",
+                "label": "pumped water"
+            },
+            {
+                "uri": "oeo:OEO_00010380",
+                "label": "refinery gas"
+            },
+            {
+                "uri": "oeo:OEO_00000033",
+                "label": "renewable electrolytic hydrogen"
+            },
+            {
+                "uri": "oeo:OEO_00010418",
+                "label": "renewable fuel"
+            },
+            {
+                "uri": "oeo:OEO_00000332",
+                "label": "solar electrolytic hydrogen"
+            },
+            {
+                "uri": "oeo:OEO_00010144",
+                "label": "solid biofuel"
+            },
+            {
+                "uri": "oeo:OEO_00000391",
+                "label": "solid combustion fuel"
+            },
+            {
+                "uri": "oeo:OEO_00010149",
+                "label": "solid fossil fuel"
+            },
+            {
+                "uri": "oeo:OEO_00010154",
+                "label": "solid renewable fuel"
+            },
+            {
+                "uri": "oeo:OEO_00010381",
+                "label": "solid synthetic fuel"
+            },
+            {
+                "uri": "oeo:OEO_00000401",
+                "label": "steam reforming hydrogen"
+            },
+            {
+                "uri": "oeo:OEO_00010336",
+                "label": "sub bituminous coal"
+            },
+            {
+                "uri": "oeo:OEO_00010221",
+                "label": "sustainable biofuel"
+            },
+            {
+                "uri": "oeo:OEO_00010017",
+                "label": "synthetic ammonia"
+            },
+            {
+                "uri": "oeo:OEO_00010016",
+                "label": "synthetic fuel"
+            },
+            {
+                "uri": "oeo:OEO_00010018",
+                "label": "synthetic hydrogen"
+            },
+            {
+                "uri": "oeo:OEO_00000439",
+                "label": "synthetic methane"
+            },
+            {
+                "uri": "oeo:OEO_00010104",
+                "label": "waste fuel"
+            },
+            {
+                "uri": "oeo:OEO_00010448",
+                "label": "water body"
+            },
+            {
+                "uri": "oeo:OEO_00010447",
+                "label": "B7"
+            },
+            {
+                "uri": "oeo:OEO_00000054",
+                "label": "E10"
+            },
+            {
+                "uri": "oeo:OEO_00010000",
+                "label": "air"
+            },
+            {
+                "uri": "oeo:OEO_00000058",
+                "label": "ammonia"
+            },
+            {
+                "uri": "oeo:OEO_00000071",
+                "label": "anthracite"
+            },
+            {
+                "uri": "oeo:OEO_00010446",
+                "label": "biodiesel"
+            },
+            {
+                "uri": "oeo:OEO_00000072",
+                "label": "bioethanol"
+            },
+            {
+                "uri": "oeo:OEO_00000074",
+                "label": "biofuel"
+            },
+            {
+                "uri": "oeo:OEO_00000075",
+                "label": "biogas"
+            },
+            {
+                "uri": "oeo:OEO_00010215",
+                "label": "biogasoline"
+            },
+            {
+                "uri": "oeo:OEO_00000084",
+                "label": "biomethane"
+            },
+            {
+                "uri": "oeo:OEO_00000088",
+                "label": "charcoal"
+            },
+            {
+                "uri": "oeo:OEO_00020001",
+                "label": ""
+            },
+            {
+                "uri": "oeo:OEO_00000173",
+                "label": "coal"
+            },
+            {
+                "uri": "oeo:OEO_00000183",
+                "label": "ethanol"
+            },
+            {
+                "uri": "oeo:OEO_00140159",
+                "label": "fuel"
+            },
+            {
+                "uri": "oeo:OEO_00000220",
+                "label": "gasoline"
+            },
+            {
+                "uri": "oeo:OEO_00000246",
+                "label": "hydrocarbon"
+            },
+            {
+                "uri": "oeo:OEO_00000251",
+                "label": "hydrogen"
+            },
+            {
+                "uri": "oeo:OEO_00000025",
+                "label": "kerosene"
+            },
+            {
+                "uri": "oeo:OEO_00010484",
+                "label": "lignite"
+            },
+            {
+                "uri": "oeo:OEO_00010105",
+                "label": "methane"
+            },
+            {
+                "uri": "oeo:OEO_00000320",
+                "label": "methanol"
+            },
+            {
+                "uri": "oeo:OEO_00230021",
+                "label": "ocean"
+            },
+            {
+                "uri": "oeo:OEO_00140091",
+                "label": "peat"
+            },
+            {
+                "uri": "oeo:OEO_00010093",
+                "label": "photon"
+            },
+            {
+                "uri": "oeo:OEO_00020058",
+                "label": "plutonium"
+            },
+            {
+                "uri": "oeo:OEO_00110001",
+                "label": "river"
+            },
+            {
+                "uri": "oeo:OEO_00140160",
+                "label": "rock"
+            },
+            {
+                "uri": "oeo:OEO_00140092",
+                "label": "steam"
+            },
+            {
+                "uri": "oeo:OEO_00000040",
+                "label": "syngas"
+            },
+            {
+                "uri": "oeo:OEO_00000441",
+                "label": "thorium"
+            },
+            {
+                "uri": "oeo:OEO_00000449",
+                "label": "uranium"
+            },
+            {
+                "uri": "oeo:OEO_00010448",
+                "label": "water"
+            },
+            {
+                "uri": "oeo:OEO_00010448",
+                "label": "wood"
+            }
+        ]
+    },
+    {
+        "uri": "oeo:OEO_00390078",
+        "label": "has reference",
+        "description": "'has reference' has reference is the relation between a continuant and a reference that points to a relevant resource to the continuant. Links to documents or other ontologies are stored here. Objects are an URI of the type specified in the range.",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00020012",
+                "label": "study report"
+            },
+            {
+                "uri": "oeo:OEO_00020036",
+                "label": "interacting region"
+            },
+            {
+                "uri": "oeo:OEO_00020032",
+                "label": "study region"
+            }
+        ],
+        "range": [
+            {
+                "uri": "oeo:OEO_00000353",
+                "label": "reference"
+            }
+        ]
+    },
+    {
+        "uri": "oeo:OEO_00390095",
+        "label": "has uuid",
+        "description": "'has uuid' has uuid is the relation between a factsheet or report and the 128-bit label used to identify it in a computer system. Uuids are used for internal workings with the oekg.",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00020012",
+                "label": "study report"
+            },
+            {
+                "uri": "oeo:OEO_00000365",
+                "label": "scenario factsheet"
+            },
+            {
+                "uri": "oeo:OEO_00020437",
+                "label": "has information input (shortcut)"
+            },
+            {
+                "uri": "oeo:OEO_00020436",
+                "label": "has information output (shortcut)"
+            }
+        ],
+        "range": [
+            {
+                "uri": "Literal",
+                "label": "string"
+            }
+        ]
+    },
+    {
+        "uri": "oeo:OEO_00000506",
+        "label": "has author",
+        "description": "'has author' A relation that holds between an information content entity and its author. Objects are an URI of the type specified in the range.",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00020012",
+                "label": "study report"
+            }
+        ],
+        "range": [
+            {
+                "uri": "oeo:OEO_00000064",
+                "label": "author"
+            }
+        ]
+    },
+    {
+        "uri": "oeo:OEO_00390096",
+        "label": "has publication date",
+        "description": "'has publication date' has publication date is the relation between a report and the year it was published in. ",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00020012",
+                "label": "study report"
+            }
+        ],
+        "range": [
+            {
+                "uri": "Literal",
+                "label": "dateTime"
+            }
+        ]
+    },
+    {
+        "uri": "oeo:OEO_00390098",
+        "label": "has doi",
+        "description": "'has doi' has doi is the relation between a digital object and the literal representing its doi (digital object identifier). ",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00020012",
+                "label": "study report"
+            }
+        ],
+        "range": [
+            {
+                "uri": "Literal",
+                "label": "string"
+            }
+        ]
+    },
+    {
+        "uri": "oeo:OEO_00390073",
+        "label": "has scenario type",
+        "description": "'has scenario type' has scenario type is a relation between a scenario factsheet and a subclass of scenario. Subclasses or individuals of scenarios are allowed. As of now, no individuals exist. Objects have to be one of the entries in range.",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00000365",
+                "label": "scenario factsheet"
+            }
+        ],
+        "range": [
+            {
+                "uri": "oeo:OEO_00000364",
+                "label": "scenario"
+            },
+            {
+                "uri": "oeo:OEO_00020247",
+                "label": "target driven scenario"
+            },
+            {
+                "uri": "oeo:OEO_00020248",
+                "label": "explorative scenario"
+            },
+            {
+                "uri": "oeo:OEO_00020314",
+                "label": "reference scenario"
+            },
+            {
+                "uri": "oeo:OEO_00020345",
+                "label": "sufficiency scenario"
+            },
+            {
+                "uri": "oeo:OEO_00020412",
+                "label": "statistically robust scenario"
+            },
+            {
+                "uri": "oeo:OEO_00030007",
+                "label": "climate scenario"
+            },
+            {
+                "uri": "oeo:OEO_00030008",
+                "label": "economic scenario"
+            },
+            {
+                "uri": "oeo:OEO_00030009",
+                "label": "emission scenario"
+            },
+            {
+                "uri": "oeo:OEO_00030010",
+                "label": "energy scenario"
+            },
+            {
+                "uri": "oeo:OEO_00020309",
+                "label": "policy scenario"
+            },
+            {
+                "uri": "oeo:OEO_00020411",
+                "label": "robust system scenario"
+            },
+            {
+                "uri": "oeo:OEO_00020317",
+                "label": "greenhouse gas emission scenario"
+            },
+            {
+                "uri": "oeo:OEO_00020321",
+                "label": "CO2 emission scenario"
+            },
+            {
+                "uri": "oeo:OEO_00020310",
+                "label": "without measures scenario"
+            },
+            {
+                "uri": "oeo:OEO_00020311",
+                "label": "with existing measures scenario"
+            },
+            {
+                "uri": "oeo:OEO_00020312",
+                "label": "with additional measures scenario"
+            }
+        ]
+    },
+    {
+        "uri": "oeo:OEO_00020222",
+        "label": "has interacting region",
+        "description": "'has interacting region' An is-about-relation between a scenario and an interacting region to indicate an interacting region of a scenario. Objects are an URI of the type specified in the range.",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00000365",
+                "label": "scenario factsheet"
+            }
+        ],
+        "range": [
+            {
+                "uri": "oeo:OEO_00020036",
+                "label": "interacting region"
+            }
+        ]
+    },
+    {
+        "uri": "oeo:OEO_00020220",
+        "label": "has study region",
+        "description": "'has study region' An is-about-relation between a scenario and a study region to indicate the study region of a scenario. Objects are an URI of the type specified in the range.",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00000365",
+                "label": "scenario factsheet"
+            }
+        ],
+        "range": [
+            {
+                "uri": "oeo:OEO_00020032",
+                "label": "study region"
+            }
+        ]
+    },
+    {
+        "uri": "oeo:OEO_00020440",
+        "label": "has scenario year value",
+        "description": "'has scenario year value' has publication date is the relation between a report and the year it was published in. Has scenario year value is a relation between a scenario factsheet and a xsd:dateTime value.",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00000365",
+                "label": "scenario factsheet"
+            }
+        ],
+        "range": [
+            {
+                "uri": "Literal",
+                "label": "dateTime"
+            }
+        ]
+    },
+    {
+        "uri": "oeo:OEO_00020437",
+        "label": "has information input (shortcut)",
+        "description": "'has information input (shortcut)' A relation between a scenario factsheet and a dataset, where the dataset is an input to the scenario projection process the scenario factsheet is about. It is a shortcut relation, see elucidation and associated sparql axiom.\n\nThis is a shortcut relation to relate 'scenatio factsheet' to 'data set'. The original\nrelation 'has information input' relates 'scenario projection' (process) to 'data set'.\nThe shortcut relation should be used to represents these statements:\n('scenario factsheet' 'is about' some scenario) and\n('scenario projection' 'is based on' some scenario) and\n('scenario projection' 'has information input' some dataset) Objects are an URI of the type specified in the range.",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00000365",
+                "label": "scenario factsheet"
+            }
+        ],
+        "range": [
+            {
+                "uri": "oeo:OEO_00030029",
+                "label": "exogenous data"
+            }
+        ]
+    },
+    {
+        "uri": "oeo:OEO_00020436",
+        "label": "has information output (shortcut)",
+        "description": "'has information output (shortcut)' A relation between a scenario factsheet and a dataset, where the dataset is an output of the scenario projection process the scenario factsheet is about. It is a shortcut relation, see elucidation and associated sparql axiom.\n\nThis is a shortcut relation to relate 'scenatio factsheet' to 'data set'. The original\nrelation 'has information output' relates 'scenario projection' (process) to 'data\nset'.\nThe shortcut relation should be used to represents these statements:\n('scenario factsheet' 'is about' some scenario) and ('scenario projection' 'is based on' some scenario) and Objects are an URI of the type specified in the range.",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00000365",
+                "label": "scenario factsheet"
+            }
+        ],
+        "range": [
+            {
+                "uri": "oeo:OEO_00030030",
+                "label": "endogenous data"
+            }
+        ]
+    },
+    {
+        "uri": "oeo:OEO_00390094",
+        "label": "has iri",
+        "description": "'has iri' has iri is a relation between a data item or document and the IRI that identifies it as rescource on the internet. Uuids are used for internal workings with the oekg.",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00030029",
+                "label": "exogenous data"
+            },
+            {
+                "uri": "oeo:OEO_00030030",
+                "label": "endogenous data"
+            },
+            {
+                "uri": "oeo:OEO_00000172",
+                "label": "framework factsheet"
+            },
+            {
+                "uri": "oeo:OEO_00000277",
+                "label": "model factsheet"
+            }
+        ],
+        "range": [
+            {
+                "uri": "Literal",
+                "label": "string"
+            }
+        ]
+    },
+    {
+        "uri": "oekg:has_id",
+        "label": "oekg:has_id",
+        "description": "'oekg:has_id'  Uuids are used for internal workings with the oekg.",
+        "domain": [
+            {
+                "uri": "oeo:OEO_00030029",
+                "label": "exogenous data"
+            },
+            {
+                "uri": "oeo:OEO_00030030",
+                "label": "endogenous data"
+            }
+        ],
+        "range": [
+            {
+                "uri": "Literal",
+                "label": "integer"
+            }
+        ]
+    }
+]

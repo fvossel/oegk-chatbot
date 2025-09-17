@@ -1,0 +1,182 @@
+[
+    {
+        "class": "oeo:OEO_00000064",
+        "label": "author",
+        "description": "'author' \"An author is an agent that creates or has created written work.\" It is important to note that only a study report/publication can have authors but obviously the whole scenario bundle is associated with those authors."
+    },
+    {
+        "class": "oeo:OEO_00000107",
+        "label": "contact person",
+        "description": "'contact person' A contact person is an agent that can be contacted for help or information about a specific service or good."
+    },
+    {
+        "class": "oeo:OEO_00000128",
+        "label": "energy demand sector",
+        "description": "'energy demand sector' An energy demand sector is a sector that covers energy consumers."
+    },
+    {
+        "class": "oeo:OEO_00000145",
+        "label": "electricity sector",
+        "description": "'electricity sector' An electricity sector is a transformation sector that covers electricity generation and transport of electrical energy to consumers of electrical energy."
+    },
+    {
+        "class": "oeo:OEO_00000158",
+        "label": "energy transformation sector",
+        "description": "'energy transformation sector' An energy transformation sector is a sector that covers energy production, energy transformation from primary to secondary energy and transport of energy to the demand sector."
+    },
+    {
+        "class": "oeo:OEO_00000172",
+        "label": "framework factsheet",
+        "description": "'framework factsheet' \"A framework factsheet is a factsheet that contains information about a software framework.\" This is in the centre of all information about a single framework. But in fact the only relevant one right now is the name of the framework as the other connections are only used internally and should never interest an outside user."
+    },
+    {
+        "class": "oeo:OEO_00000213",
+        "label": "heating and cooling sector",
+        "description": "'heating and cooling sector' A heating and cooling sector is a sector that covers heating and cooling activities."
+    },
+    {
+        "class": "oeo:OEO_00000214",
+        "label": "household sector",
+        "description": "'household sector' A household sector is a sector that covers households."
+    },
+    {
+        "class": "oeo:OEO_00000227",
+        "label": "industry sector",
+        "description": "'industry sector' An industry sector is a sector that covers industrial activities with other main purposes of energy transformation."
+    },
+    {
+        "class": "oeo:OEO_00000277",
+        "label": "model factsheet",
+        "description": "'model factsheet' \"A model factsheet is a model descriptor that contains a Brief description of all relevant model information.\" This is in the centre of all information about a single model. But in fact the only relevant one right now is the name of the model as the other connections are only used internally and should never interest an outside user."
+    },
+    {
+        "class": "oeo:OEO_00000353",
+        "label": "reference",
+        "description": "'reference' A reference is an information content entity naming a relevant document, position in a document or address."
+    },
+    {
+        "class": "oeo:OEO_00000365",
+        "label": "scenario factsheet",
+        "description": "'scenario factsheet' \"A scenario factsheet is a factsheet that contains information about a scenario.\" This is in the centre of all information about a single scenario. A bundle can have several."
+    },
+    {
+        "class": "oeo:OEO_00000367",
+        "label": "sector",
+        "description": "'sector' \"A sector is generically dependent continuant that is a subdivision of a system.\" Only the individuals are used. Looking at those it makes the meaning more clear. Is may be about agriculture, about heating, industry etc."
+    },
+    {
+        "class": "oeo:OEO_00000368",
+        "label": "sector division",
+        "description": "'sector division' \"A sector division is a specific way to subdivide a system.\" Only the individuals are used. If I understood correctly this tells us what system is used to classsify the sectors but I am actually not sure."
+    },
+    {
+        "class": "oeo:OEO_00000405",
+        "label": "commercial sector",
+        "description": "'commercial sector' A commercial sector is a sector that covers non-industrial commercial activities."
+    },
+    {
+        "class": "oeo:OEO_00000422",
+        "label": "transport sector",
+        "description": "'transport sector' A transport sector is a sector that covers transport of people and/or goods."
+    },
+    {
+        "class": "oeo:OEO_00010034",
+        "label": "building sector",
+        "description": "'building sector' A building sector is a sector that covers buildings."
+    },
+    {
+        "class": "oeo:OEO_00010035",
+        "label": "agriculture, forestry and land use sector",
+        "description": "'agriculture, forestry and land use sector' A agriculture, forestry and land use (AFOLU) sector is a sector that covers activities and natural processes from agriculture, forestry, land use and land use change."
+    },
+    {
+        "class": "oeo:OEO_00010036",
+        "label": "waste and wastewater sector",
+        "description": "'waste and wastewater sector' A waste and wastewater sector is a sector that covers activities related the collection and treatment of waste and wastewater."
+    },
+    {
+        "class": "oeo:OEO_00010055",
+        "label": "common reporting format",
+        "description": "'common reporting format' The common reporting format (CRF) is a sector division used for compiling national inventory reports on greenhouse gas emissions and providing emission relevant data in so called CRF tables."
+    },
+    {
+        "class": "oeo:OEO_00010130",
+        "label": "EU emission sector division",
+        "description": "'EU emission sector division' An EU emission sector division is an EU legislation sector division used in the EU climate policy."
+    },
+    {
+        "class": "oeo:OEO_00010319",
+        "label": "mineral oil refining sector",
+        "description": "'mineral oil refining sector' A mineral oil refining sector is an energy transformation sector that covers mineral oil refining."
+    },
+    {
+        "class": "oeo:OEO_00010320",
+        "label": "international transport sector",
+        "description": "'international transport sector' An international transport sector is a transport sector of international transport processes."
+    },
+    {
+        "class": "oeo:OEO_00010360",
+        "label": "source category",
+        "description": "'source category' A source category is a sector that is defined by a common reporting format."
+    },
+    {
+        "class": "oeo:OEO_00010402",
+        "label": "CRF-based sector division",
+        "description": "'CRF-based sector division' A CRF-based sector division is a sector division that is derived from a common reporting format."
+    },
+    {
+        "class": "oeo:OEO_00010403",
+        "label": "EU legislation sector division",
+        "description": "'EU legislation sector division' An EU legislation sector division is a sector division that is used in EU legislation."
+    },
+    {
+        "class": "oeo:OEO_00010407",
+        "label": "energy balance sector division",
+        "description": "'energy balance sector division' An energy balance sector division is a sector division that is defined by an energy balance calculation method."
+    },
+    {
+        "class": "oeo:OEO_00010464",
+        "label": "subsector",
+        "description": "'subsector' A subsector is a sector that is a part of an other sector."
+    },
+    {
+        "class": "oeo:OEO_00020012",
+        "label": "study report",
+        "description": "'study report' \"A study report is a report that is the output from some study.\" This is in the centre of all information about one publication associated with a scenario bundle (study). A bundle can have several. So if talked about studies most likely it is about a scenario bundle and not a single study report. Only if talked about publications it is about a single study report. The bundle is the collection of all study reports and other information related to a study."
+    },
+    {
+        "class": "oeo:OEO_00020032",
+        "label": "study region",
+        "description": "'study region' \"A study region is a region of relevance that has the study region role and consists entirely of one or more subregions.\" This is in the centre of all information about a single study region."
+    },
+    {
+        "class": "oeo:OEO_00020036",
+        "label": "interacting region",
+        "description": "'interacting region' \"An interacting region is a region of relevance that has the interacting region role.\" This is in the centre of all information about a single interacting region. Maybe it is interesting to know the definition of an interacting region role: \"An interacting region role is a role of a region of relevance that interacts with a region of relevance that has the study region role. It is part of a region of relevance that has the considered region role, but not a study region role.\""
+    },
+    {
+        "class": "oeo:OEO_00020227",
+        "label": "scenario bundle",
+        "description": "'scenario bundle' \"A scenario bundle is an information content entity that connects information about a scenario study and the associated Scenario projections on the OEP via the OEKG.\" This is holding all the information about a study together including ist scenarios (scenario factsheet), publications (study report), framework (framework factsheet)and model (model factsheet) as parts of it. So if talked abotu studies about e. g. all studies with scenarios then this is meant and not a single study report. The bundle is the collection of all study reports and other information related to a study."
+    },
+    {
+        "class": "oeo:OEO_00030022",
+        "label": "organisation",
+        "description": "'organisation' An organisation is an immaterial entity that has the organisation role and there exists some sort of legal framework that recognises the entity and its continued existence."
+    },
+    {
+        "class": "oeo:OEO_00030029",
+        "label": "exogenous data",
+        "description": "'exogenous data' \"Exogenous data is a data item whose quantity value is determined outside of a model and is imposed on a model.\" This is in the centre of all information about a single input dataset. But in fact the only relevant one right now is the name of the dataset as the other connections are only used internally and should never interest an outside user."
+    },
+    {
+        "class": "oeo:OEO_00030030",
+        "label": "endogenous data",
+        "description": "'endogenous data' \"Endogenous data is a data item whose quantity value is determined by a model.\" This is in the centre of all information about a single output dataset. But in fact the only relevant one right now is the name of the dataset as the other connections are only used internally and should never interest an outside user."
+    },
+    {
+        "class": "oeo:OEO_00090001",
+        "label": "funder",
+        "description": "'funder' A funder is a sponsor that supports by giving money."
+    }
+]
