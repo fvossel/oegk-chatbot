@@ -152,8 +152,8 @@ st.markdown(
 st.markdown(
     """
     <div class="oekg-footer">
-        Powered by <a href="https://openenergyplatform.org/" target="_blank">
-        Open Energy Platform</a>
+        Powered by <a href="https://openenergyplatform.org/" target="_blank">Open Energy Platform</a> | 
+        <a href="https://github.com/fvossel/oegk-chatbot" target="_blank">Source</a>
     </div>
     """,
     unsafe_allow_html=True
@@ -169,7 +169,17 @@ if "graph" not in st.session_state:
         g.parse(data=oekg_data, format=OEKG_FORMAT)
         st.session_state.graph = g
 
-g = st.session_state.graph
+if "api_key" not in st.session_state or "faiss_index" not in st.session_state or "documents_dict" not in st.session_state or "ids" not in st.session_state or "sparql_system_prompt" not in st.session_state or "summary_system_prompt" not in st.session_state:
+    with st.spinner("Setting up Language Model and document retrieval..."):
+        api_key, faiss_index, documents_dict, ids, sparql_system_prompt, summary_system_prompt = llm_pipeline.load_data()
+        st.session_state.api_key = api_key
+        st.session_state.faiss_index = faiss_index
+        st.session_state.documents_dict = documents_dict
+        st.session_state.ids = ids
+        st.session_state.sparql_system_prompt = sparql_system_prompt
+        st.session_state.summary_system_prompt = summary_system_prompt
+
+
 
 # Show chat history (user & assistant), in order
 for role, msg in st.session_state.chat_history:
@@ -183,7 +193,7 @@ if prompt := st.chat_input("Ask me something about OEKG..."):
         st.markdown(prompt)
 
     with st.spinner():
-        answer = llm_pipeline.call_rag_pipeline(nl_query=prompt, streamlit_module=st, graph=g)
+        answer = llm_pipeline.call_rag_pipeline(nl_query=prompt, streamlit_module=st, graph=st.session_state.graph, api_key=st.session_state.api_key, faiss_index=st.session_state.faiss_index, documents_dict=st.session_state.documents_dict, ids=st.session_state.ids, sparql_system_prompt=st.session_state.sparql_system_prompt, summary_system_prompt=st.session_state.summary_system_prompt)
 
     st.session_state.chat_history.append(("assistant", answer))
     with st.chat_message("assistant"):

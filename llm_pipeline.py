@@ -7,33 +7,36 @@ import streamlit as st
 from openai import OpenAI
 from rdflib import Graph, Namespace
 from rdflib.namespace import RDF, RDFS
+from typing import Any
+import concurrent.futures
 
 # Load API key and system prompts
-API_KEY = os.getenv("OPENAI_API_KEY")
-SUMMARY_SYSTEM_PROMPT = ""
-SPARQL_SYSTEM_PROMPT = ""
 
+def load_data() -> tuple[str, faiss.Index, dict[str, Any], dict[str, Any], str, str]:
+    api_key = os.getenv("OPENAI_API_KEY")
 
-with open("summary_system_prompt.txt", "r") as f:
-    SUMMARY_SYSTEM_PROMPT = f.read()
+    with open("summary_system_prompt.txt", "r") as f:
+        summary_system_prompt = f.read()
 
-with open("sparql_system_prompt.txt", "r") as f:
-    SPARQL_SYSTEM_PROMPT = f.read()
+    with open("sparql_system_prompt.txt", "r") as f:
+        sparql_system_prompt = f.read()
 
-# Load ontology resources
-with open("classes.json", "r", encoding="utf-8") as f:
-    classes_list = json.load(f)
+    # Load ontology resources
+    with open("/root/sparql/classes.json", "r", encoding="utf-8") as f:
+        classes_list = json.load(f)
 
-with open("relations_final.json", "r", encoding="utf-8") as f:
-    relations_list = json.load(f)
+    with open("/root/sparql/relations_final.json", "r", encoding="utf-8") as f:
+        relations_list = json.load(f)
 
-with open("ids.json", "r", encoding="utf-8") as f:
-    ids = json.load(f)
+    with open("/root/sparql/ids.json", "r", encoding="utf-8") as f:
+        ids = json.load(f)
 
-# Load vector store for semantic retrieval
-faiss_index = faiss.read_index("vector_store.faiss")
-documents_dict = {doc["class"]: doc for doc in classes_list}
-documents_dict.update({rel["uri"]: rel for rel in relations_list})
+    # Load vector store for semantic retrieval
+    faiss_index = faiss.read_index("/root/sparql/vector_store.faiss")
+    documents_dict = {doc["class"]: doc for doc in classes_list}
+    documents_dict.update({rel["uri"]: rel for rel in relations_list})
+
+    return api_key, faiss_index, documents_dict, ids, sparql_system_prompt, summary_system_prompt
 
 def shorten_uri(uri: str) -> str:
     """
@@ -53,7 +56,7 @@ def shorten_uri(uri: str) -> str:
             return uri.replace(full, prefix)
     return uri
 
-def retrieve_top_k_similar_documents(nl_query: str, client: OpenAI, k: int = 5) -> list:
+def retrieve_top_k_similar_documents(nl_query: str, client: OpenAI, faiss_index, documents_dict: dict[str,str], ids, k: int = 5) -> list:
     """
     Retrieve top-k documents most semantically similar to the natural language query using embeddings.
     """
@@ -71,13 +74,13 @@ def retrieve_top_k_similar_documents(nl_query: str, client: OpenAI, k: int = 5) 
     return retrieved_docs
 
 
-def request_sparql_query(query: str, documents: list, client: OpenAI) ->str:
+def request_sparql_query(query: str, documents: list, client: OpenAI, system_prompt: str) ->str:
     """
     Generate a SPARQL query from a natural language request and context documents using the LLM.
     """   
     user_prompt ="Request: " + query + "\n\nContext with classes and their allowed relations and properties:\n" + json.dumps(documents, ensure_ascii=False, indent=2)
     messages = [
-        {"role": "developer", "content": SPARQL_SYSTEM_PROMPT},
+        {"role": "developer", "content": system_prompt},
         {"role": "user", "content": user_prompt}
     ]
 
@@ -90,13 +93,13 @@ def request_sparql_query(query: str, documents: list, client: OpenAI) ->str:
     sparql = response.output_text
     return sparql
 
-def summarise_sparql_results(sparql_results: str, nl_query: str, client: OpenAI) ->str:
+def summarise_sparql_results(sparql_results: str, nl_query: str, client: OpenAI, system_prompt: str) ->str:
     """
     Get a text summary of the SPARQL query results using the LLM.
     """
     try:   
         messages = [
-            {"role": "developer", "content": SUMMARY_SYSTEM_PROMPT},
+            {"role": "developer", "content": system_prompt},
             {"role": "user", "content": "The users question:" + nl_query + "\nThe formatted results from the SPARQL query:" + sparql_results}
         ]
         
@@ -113,21 +116,15 @@ def summarise_sparql_results(sparql_results: str, nl_query: str, client: OpenAI)
 
 
 
-def get_query(nl_query: str, top_k_documents: list, client: OpenAI) ->str:
-    """
-    Generate a SPARQL query with error fallback. Returns query or an error message.
-    """
-    error = ""
+def get_query(nl_query: str, top_k_documents: list, client: OpenAI, system_prompt: str) -> str:
     try:
-        return request_sparql_query(nl_query, top_k_documents, client)
+        sparql = request_sparql_query(nl_query, top_k_documents, client, system_prompt)
+        return sparql
     except Exception as e:
-        error = str(e)
-        return request_sparql_query(nl_query, top_k_documents, client)
-    finally:
-        return error
+        return str(e)
         
 
-def execute_sparql(sparql_query: str, nl_query: str, top_k_documents: list, g: Graph, client: OpenAI) -> tuple[pd.DataFrame, str]:
+def execute_sparql(sparql_query: str, nl_query: str, top_k_documents: list, g: Graph, client: OpenAI, system_prompt: str) -> tuple[pd.DataFrame, str]:
     """
     Execute a SPARQL query and returns the result as a DataFrame and the executed query text.
     Has multiple fallbacks if the query fails or returns no results.
@@ -150,7 +147,7 @@ PREFIX XSD: <http://www.w3.org/2001/XMLSchema#>
     except Exception as e:
         try:
             full_query = full_query.replace(sparql_query, "")
-            sparql_query = request_sparql_query(nl_query + f"The privious SPARQL-Query was not correct:\n{sparql_query}\n The following error occured:\n{e}", top_k_documents, client)
+            sparql_query = request_sparql_query(nl_query + f"The privious SPARQL-Query was not correct:\n{sparql_query}\n The following error occured:\n{e}", top_k_documents, client, system_prompt)
             full_query = full_query + sparql_query
             results = g.query(full_query)
         except:
@@ -159,14 +156,12 @@ PREFIX XSD: <http://www.w3.org/2001/XMLSchema#>
     if not results:
         try:
             full_query = full_query.replace(sparql_query, "")
-            sparql_query = request_sparql_query(nl_query + f"The privious SPARQL-Query has not returned any results: \n{sparql_query}\n Please check the query again and also check if your constraints were to harsh. But also take into account that maybe you have to search for the pattern in the subclasses labels of the mentioned entity. So try again and maybe use some fancy tricks.", top_k_documents, client)
+            sparql_query = request_sparql_query(nl_query + f"The privious SPARQL-Query has not returned any results: \n{sparql_query}\n Please check the query again and also check if your constraints were to harsh. But also take into account that maybe you have to search for the pattern in the subclasses labels of the mentioned entity. So try again and maybe use some fancy tricks.", top_k_documents, client, system_prompt)
             full_query = full_query + sparql_query
             results = g.query(full_query)
         except:
             results = None
-
-
-        
+  
     # Namespaces
     oeo = Namespace("https://openenergyplatform.org/ontology/oeo/")
     dc = Namespace("http://purl.org/dc/terms/")
@@ -207,8 +202,7 @@ PREFIX XSD: <http://www.w3.org/2001/XMLSchema#>
                     else str(val)
                 )
             rows.append(mapped_row)
-
-    # Prepare output DataFrame
+ 
     if bundle_to_scenarios:
         grouped_rows = []
         for uri, data in bundle_to_scenarios.items():
@@ -226,11 +220,19 @@ PREFIX XSD: <http://www.w3.org/2001/XMLSchema#>
         df = pd.DataFrame(grouped_rows)
     else:
         df = pd.DataFrame(rows)
-
     return df, f"Generated Query:\n```sparql\n{full_query}\n```\n\n"
 
 
-def call_rag_pipeline(nl_query : str, streamlit_module: st, graph: Graph) -> str:
+def call_execute_sparql_with_timeout(timeout_seconds, *args, **kwargs):
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(execute_sparql, *args, **kwargs)
+        try:
+            df, final_query = future.result(timeout=timeout_seconds)
+            return df, final_query
+        except concurrent.futures.TimeoutError:
+            return pd.DataFrame(), "Timeout: SPARQL query execution took too long (aborted after {} seconds).".format(timeout_seconds)
+
+def call_rag_pipeline(nl_query : str, streamlit_module: st, graph: Graph, api_key: str, faiss_index, documents_dict, ids, sparql_system_prompt: str, summary_system_prompt: str) -> str:
     """
     End-to-end pipeline: NL→Retrieve→SPARQL→Execute→Summarize.
     Interacts with Streamlit for UI feedback.
@@ -241,22 +243,32 @@ def call_rag_pipeline(nl_query : str, streamlit_module: st, graph: Graph) -> str
         prefix = "User:" if role == "user" else "Assistant:"
         history_dialogue += f"{prefix} {msg}\n"
     nl_query = history_dialogue + f"User: {nl_query}\n"
+    client = OpenAI(api_key=api_key)
 
-    client = OpenAI(api_key=API_KEY)
+    top_k_documents = []
+    sparql_query = ""
+    df = pd.DataFrame()
+    sparql_results = ""
+    summary = ""
+
     with streamlit_module.spinner("Retrieving context information..."):
-        top_k_documents = retrieve_top_k_similar_documents(nl_query, client, k=10)
+        top_k_documents = retrieve_top_k_similar_documents(nl_query, client, faiss_index, documents_dict, ids, k=10)
 
     with streamlit_module.spinner("Generating SPARQL query..."):
-        sparql_query = get_query(nl_query, top_k_documents, client)
+        sparql_query = get_query(nl_query, top_k_documents, client, sparql_system_prompt)
 
-    with streamlit_module.spinner("Extracting requested information..."):
-        df, final_query = execute_sparql(sparql_query, nl_query, top_k_documents, graph, client)
-        
-    with streamlit_module.spinner("Finalizing result formatting..."):
-        sparql_results = "Query Results:\n" + (df.to_markdown(index=False) if not df.empty else "No results found.")
-        summary = "\n\nSummary of results:\n" + (summarise_sparql_results(sparql_results, nl_query, client) if "No results found." not in sparql_results and len(sparql_results) < 10000 else "")
+    if "<bot-information>" in sparql_query:
+        client.close()  # Make sure OpenAI client is closed if possible
+        return sparql_query[sparql_query.find("<bot-information>") + len("<bot-information>"):]
+    else:
+        with streamlit_module.spinner("Extracting requested information..."):
+            df, final_query = call_execute_sparql_with_timeout(5, sparql_query, nl_query, top_k_documents, graph, client, sparql_system_prompt)
+            
+        with streamlit_module.spinner("Finalizing result formatting..."):
+            sparql_results = "Query Results:\n" + (df.to_markdown(index=False) if not df.empty else "No results found.")
+            summary = "\n\nSummary of results:\n" + (summarise_sparql_results(sparql_results, nl_query, client, summary_system_prompt) if "No results found." not in sparql_results and len(sparql_results) < 10000 else "")
 
-    client.close()  # Make sure OpenAI client is closed if possible
-    return final_query + sparql_results + summary
+        client.close()  # Make sure OpenAI client is closed if possible
+        return final_query + sparql_results + summary
 
 
