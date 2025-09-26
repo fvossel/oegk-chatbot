@@ -42,6 +42,7 @@ Modify the .toml file at `.streamlit/secrets.toml` with:
 ```toml
 oep_username = "YOUR_OEP_USERNAME"
 oep_password = "YOUR_OEP_PASSWORD"
+oep_token = "YOUR_OEP_API_TOKEN"
 ```
 
 > **Note:** If you do not provide OEP credentials, the app will load a public (possibly outdated) OEKG snapshot from GitHub.
