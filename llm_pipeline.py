@@ -22,17 +22,17 @@ def load_data() -> tuple[str, faiss.Index, dict[str, Any], dict[str, Any], str, 
         sparql_system_prompt = f.read()
 
     # Load ontology resources
-    with open("/root/sparql/classes.json", "r", encoding="utf-8") as f:
+    with open("classes.json", "r", encoding="utf-8") as f:
         classes_list = json.load(f)
 
-    with open("/root/sparql/relations_final.json", "r", encoding="utf-8") as f:
+    with open("relations_final.json", "r", encoding="utf-8") as f:
         relations_list = json.load(f)
 
-    with open("/root/sparql/ids.json", "r", encoding="utf-8") as f:
+    with open("ids.json", "r", encoding="utf-8") as f:
         ids = json.load(f)
 
     # Load vector store for semantic retrieval
-    faiss_index = faiss.read_index("/root/sparql/vector_store.faiss")
+    faiss_index = faiss.read_index("vector_store.faiss")
     documents_dict = {doc["class"]: doc for doc in classes_list}
     documents_dict.update({rel["uri"]: rel for rel in relations_list})
 
