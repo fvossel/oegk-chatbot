@@ -13,6 +13,7 @@ hideTopBar = true
 
 [client]
 showErrorDetails = false
+toolbarMode = "viewer"
 
 [global]
 developmentMode = false

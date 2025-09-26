@@ -1,9 +1,7 @@
 import streamlit as st
 import llm_pipeline
-from rdflib import Graph
 import base64
-from bs4 import BeautifulSoup
-import requests
+from utils.load_rag_data import load_data
 
 # ==============================
 #         CONFIG SECTION
@@ -15,75 +13,9 @@ APP_TITLE = "Ask OEKG"
 APP_ICON = LOGO_PATH
 HEADER_HEIGHT = 48
 
-# OEKG data sources
-OEKG_LOGIN_URL = "https://openenergyplatform.org/accounts/login/"
-OEKG_TURTLE_URL = "https://openenergyplatform.org/scenario-bundles/all_in_turtle"
-OEKG_FALLBACK_URL = (
-    "https://github.com/OpenEnergyPlatform/oekg/raw/3449824246e39c10d0fd66028159b7b10040ce67/"
-    "oekg/oekg_rework/output_rework_oekg_final.ttl"
-)
-
-# Knowledge Graph format
-OEKG_FORMAT = "turtle"
-
 # Chat history limits
 MAX_USER_HISTORY = 5
 
-# ==============================
-
-def login_oep(username: str, password: str) -> requests.Session | None:
-    """
-    Log in to the Open Energy Platform. Returns authenticated Session on success, None on fail.
-    """
-    try:
-        s = requests.Session()
-        response = s.get(OEKG_LOGIN_URL)
-        soup = BeautifulSoup(response.content, "lxml")
-        form = soup.find("form")
-        token_input = (
-            form.find("input", attrs={"name": "csrfmiddlewaretoken"}) if form else None
-        )
-        if not token_input:
-            return None
-
-        csrf_token = token_input.get("value")
-        data = {
-            "login": username,
-            "password": password,
-            "csrfmiddlewaretoken": csrf_token,
-        }
-        s.post(OEKG_LOGIN_URL, data=data, headers={"Referer": OEKG_LOGIN_URL})
-        return s
-    except Exception:
-        return None
-
-def get_oekg_data() -> str:
-    """
-    Download the OEKG (Open Energy Knowledge Graph) data.
-    Tries login for live data; falls back to public GitHub snapshot if needed.
-    """
-    username = st.secrets.get("oep_username", "")
-    password = st.secrets.get("oep_password", "")
-    session = None
-
-    if username and password:
-        session = login_oep(username, password)
-
-    url = OEKG_TURTLE_URL if session else OEKG_FALLBACK_URL
-    if session is None:
-        st.warning(
-            "Could not log in to Open Energy Platform. "
-            "Loading public OEKG data from GitHub, which might be outdated."
-        )
-        session = requests.Session()
-
-    try:
-        response = session.get(url)
-        response.raise_for_status()
-        return response.content
-    except Exception:
-        st.error("Failed to load OEKG data.")
-        return ""
 
 # ==============================
 #       STREAMLIT FRONTEND
@@ -162,17 +94,10 @@ st.markdown(
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-if "graph" not in st.session_state:
-    with st.spinner("Loading OEKG data..."):
-        oekg_data = get_oekg_data()
-        g = Graph()
-        g.parse(data=oekg_data, format=OEKG_FORMAT)
-        st.session_state.graph = g
-
-if "api_key" not in st.session_state or "faiss_index" not in st.session_state or "documents_dict" not in st.session_state or "ids" not in st.session_state or "sparql_system_prompt" not in st.session_state or "summary_system_prompt" not in st.session_state:
+if "openai_api_key" not in st.session_state or "faiss_index" not in st.session_state or "documents_dict" not in st.session_state or "ids" not in st.session_state or "sparql_system_prompt" not in st.session_state or "summary_system_prompt" not in st.session_state:
     with st.spinner("Setting up Language Model and document retrieval..."):
-        api_key, faiss_index, documents_dict, ids, sparql_system_prompt, summary_system_prompt = llm_pipeline.load_data()
-        st.session_state.api_key = api_key
+        openai_api_key, faiss_index, documents_dict, ids, sparql_system_prompt, summary_system_prompt = load_data()
+        st.session_state.aopenai_api_key = openai_api_key
         st.session_state.faiss_index = faiss_index
         st.session_state.documents_dict = documents_dict
         st.session_state.ids = ids
@@ -192,8 +117,7 @@ if prompt := st.chat_input("Ask me something about OEKG..."):
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    with st.spinner():
-        answer = llm_pipeline.call_rag_pipeline(nl_query=prompt, streamlit_module=st, graph=st.session_state.graph, api_key=st.session_state.api_key, faiss_index=st.session_state.faiss_index, documents_dict=st.session_state.documents_dict, ids=st.session_state.ids, sparql_system_prompt=st.session_state.sparql_system_prompt, summary_system_prompt=st.session_state.summary_system_prompt)
+    answer = llm_pipeline.call_rag_pipeline(nl_query=prompt, streamlit_module=st, openai_api_key=st.session_state.aopenai_api_key, faiss_index=st.session_state.faiss_index, documents_dict=st.session_state.documents_dict, ids=st.session_state.ids, sparql_system_prompt=st.session_state.sparql_system_prompt, summary_system_prompt=st.session_state.summary_system_prompt, oep_api_token=st.secrets.get("oep_token", ""))
 
     st.session_state.chat_history.append(("assistant", answer))
     with st.chat_message("assistant"):
