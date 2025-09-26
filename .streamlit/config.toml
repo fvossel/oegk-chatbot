@@ -18,3 +18,5 @@ toolbarMode = "viewer"
 [global]
 developmentMode = false
 
+[logger]
+level = "error"

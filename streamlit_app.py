@@ -110,26 +110,29 @@ if "openai_api_key" not in st.session_state or "faiss_index" not in st.session_s
 for role, msg in st.session_state.chat_history:
     with st.chat_message(role):
         st.markdown(msg)
+try:
+    # Message input field / core interaction
+    if prompt := st.chat_input("Ask me something about OEKG..."):
+        st.session_state.chat_history.append(("user", prompt))
+        with st.chat_message("user"):
+            st.markdown(prompt)
 
-# Message input field / core interaction
-if prompt := st.chat_input("Ask me something about OEKG..."):
-    st.session_state.chat_history.append(("user", prompt))
-    with st.chat_message("user"):
-        st.markdown(prompt)
+        answer = llm_pipeline.call_rag_pipeline(nl_query=prompt, streamlit_module=st, openai_api_key=st.session_state.aopenai_api_key, faiss_index=st.session_state.faiss_index, documents_dict=st.session_state.documents_dict, ids=st.session_state.ids, sparql_system_prompt=st.session_state.sparql_system_prompt, summary_system_prompt=st.session_state.summary_system_prompt, oep_api_token=st.secrets.get("oep_token", ""))
 
-    answer = llm_pipeline.call_rag_pipeline(nl_query=prompt, streamlit_module=st, openai_api_key=st.session_state.aopenai_api_key, faiss_index=st.session_state.faiss_index, documents_dict=st.session_state.documents_dict, ids=st.session_state.ids, sparql_system_prompt=st.session_state.sparql_system_prompt, summary_system_prompt=st.session_state.summary_system_prompt, oep_api_token=st.secrets.get("oep_token", ""))
+        st.session_state.chat_history.append(("assistant", answer))
+        with st.chat_message("assistant"):
+            st.markdown(answer)
 
-    st.session_state.chat_history.append(("assistant", answer))
-    with st.chat_message("assistant"):
-        st.markdown(answer)
+        # Limit chat history: only store last MAX_USER_HISTORY user turns (plus responses)
+        user_count = 0
+        new_history = []
+        for role, msg in reversed(st.session_state.chat_history):
+            if role == "user":
+                user_count += 1
+            new_history.insert(0, (role, msg))
+            if user_count == MAX_USER_HISTORY:
+                break
+        st.session_state.chat_history = new_history
 
-    # Limit chat history: only store last MAX_USER_HISTORY user turns (plus responses)
-    user_count = 0
-    new_history = []
-    for role, msg in reversed(st.session_state.chat_history):
-        if role == "user":
-            user_count += 1
-        new_history.insert(0, (role, msg))
-        if user_count == MAX_USER_HISTORY:
-            break
-    st.session_state.chat_history = new_history
+except Exception:
+    st.error("Some major errors occured. Please contact the administrators.")
