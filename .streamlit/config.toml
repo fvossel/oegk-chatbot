@@ -1,8 +1,8 @@
-
 [theme]
 base="light"
 
 [server]
+headless = true
 runOnSave = true
 
 [browser]
