@@ -76,7 +76,7 @@
   </defs>
   <sodipodi:namedview
      id="base"
-     pagecolor="#ffffff"
+     pagecolor="#000000"
      bordercolor="#666666"
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
@@ -151,13 +151,13 @@
          id="flowPara1026" /></flowRoot>
     <g
        transform="matrix(0.77084011,0,0,0.77084011,79.666912,-299.74786)"
-       style="display:inline;stroke-width:0.0468912;fill:none;stroke:#ffffff"
+       style="display:inline;stroke-width:0.0468912;fill:none;stroke:#000000"
        inkscape:label="Layer 1"
        id="g1619">
       <path
          inkscape:transform-center-x="2.6489395e-06"
          sodipodi:type="star"
-         style="opacity:1;fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:10.0146;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
+         style="opacity:1;fill:none;fill-opacity:1;stroke:#000000;stroke-width:10.0146;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
          id="path1758"
          sodipodi:sides="6"
          sodipodi:cx="-96.085815"
@@ -186,7 +186,7 @@
          sodipodi:cx="-96.085815"
          sodipodi:sides="6"
          id="path1760"
-         style="opacity:1;fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:10.0146;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
+         style="opacity:1;fill:none;fill-opacity:1;stroke:#000000;stroke-width:10.0146;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
          sodipodi:type="star" />
       <path
          inkscape:transform-center-y="3.6700013e-06"
@@ -203,12 +203,12 @@
          sodipodi:cx="-96.085815"
          sodipodi:sides="6"
          id="path1762"
-         style="opacity:1;fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:10.0146;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
+         style="opacity:1;fill:none;fill-opacity:1;stroke:#000000;stroke-width:10.0146;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
          sodipodi:type="star" />
       <path
          inkscape:transform-center-y="3.6700013e-06"
          sodipodi:type="star"
-         style="opacity:1;fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:10.0146;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
+         style="opacity:1;fill:none;fill-opacity:1;stroke:#000000;stroke-width:10.0146;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
          id="path1764"
          sodipodi:sides="6"
          sodipodi:cx="-96.085815"
@@ -238,7 +238,7 @@
          sodipodi:cx="-96.085815"
          sodipodi:sides="6"
          id="path1766"
-         style="opacity:1;fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:10.0146;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
+         style="opacity:1;fill:none;fill-opacity:1;stroke:#000000;stroke-width:10.0146;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
          sodipodi:type="star" />
       <path
          inkscape:transform-center-x="2.6489395e-06"
@@ -255,11 +255,11 @@
          sodipodi:cx="-96.085815"
          sodipodi:sides="6"
          id="path1768"
-         style="opacity:1;fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:10.0146;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
+         style="opacity:1;fill:none;fill-opacity:1;stroke:#000000;stroke-width:10.0146;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
          sodipodi:type="star" />
       <path
          sodipodi:type="star"
-         style="opacity:1;fill:none;fill-opacity:1;stroke:#ffffff;stroke-width:10.0146;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
+         style="opacity:1;fill:none;fill-opacity:1;stroke:#000000;stroke-width:10.0146;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
          id="path1770"
          sodipodi:sides="6"
          sodipodi:cx="-96.085815"
@@ -275,18 +275,18 @@
          inkscape:transform-center-x="-2.7792192e-06"
          transform="matrix(0,-1.4180851,1.4318192,0,-1773.8323,-128.96971)" />
       <g
-         style="fill:none;stroke:#ffffff"
+         style="fill:none;stroke:#000000"
          transform="matrix(1.2972859,0,0,1.2972859,-90.519788,392.20646)"
          id="layer1-2"
          inkscape:label="Ebene 1">
         <flowRoot
            transform="matrix(0.26458333,0,0,0.26458333,-170.53217,-180.4797)"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:53.3333px;line-height:1.25;font-family:Roboto;-inkscape-font-specification:Roboto;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:none;fill-opacity:1;stroke:#ffffff"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:53.3333px;line-height:1.25;font-family:Roboto;-inkscape-font-specification:Roboto;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:none;fill-opacity:1;stroke:#000000"
            id="flowRoot1020-5"
            xml:space="preserve"><flowRegion
-             style="fill:none;stroke:#ffffff"
+             style="fill:none;stroke:#000000"
              id="flowRegion1022-4"><rect
-               style="fill:none;stroke:#ffffff"
+               style="fill:none;stroke:#000000"
                y="-37.088654"
                x="4.0406103"
                height="1365.7262"
@@ -296,7 +296,7 @@
         <g
            id="g1619-2"
            inkscape:label="Layer 1"
-           style="display:inline;stroke-width:0.0468912;fill:none;stroke:#ffffff"
+           style="display:inline;stroke-width:0.0468912;fill:none;stroke:#000000"
            transform="matrix(0.77084011,0,0,0.77084011,69.77629,-301.59289)" />
       </g>
     </g>
@@ -304,6 +304,6 @@
        inkscape:connector-curvature="0"
        id="path1756"
        d="m -957.36015,-545.24257 a 188.15775,188.15775 0 0 0 -188.15805,188.1575 188.15775,188.15775 0 0 0 74.3386,149.63532 l 13.3243,-18.13946 a 165.70712,165.70712 0 0 1 -65.212,-131.49586 165.70712,165.70712 0 0 1 165.70715,-165.70719 165.70712,165.70712 0 0 1 165.70724,165.70719 165.70712,165.70712 0 0 1 -66.07194,132.21261 l 13.24621,18.03249 a 188.15775,188.15775 0 0 0 75.27602,-150.2451 188.15775,188.15775 0 0 0 -188.15753,-188.1575 z"
-       style="opacity:1;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.264583;stroke-linecap:square;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal" />
+       style="opacity:1;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583;stroke-linecap:square;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal" />
   </g>
 </svg>
