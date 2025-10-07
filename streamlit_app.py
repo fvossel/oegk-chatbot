@@ -94,7 +94,10 @@ st.markdown(
     """
     <div class="oekg-footer">
         Powered by <a href="https://openenergyplatform.org/" target="_blank">Open Energy Platform</a> | 
-        <a href="https://github.com/fvossel/oegk-chatbot" target="_blank">Source</a>
+        <a href="https://github.com/fvossel/oegk-chatbot" target="_blank">Source</a> | 
+        <a href="https://openenergyplatform.org/contact/" target="_blank">Contact</a> | 
+        <a href="https://openenergyplatform.org/legal/privacy_policy/" target="_blank">Privacy Policy</a> | 
+        <a href="https://openenergyplatform.org/legal/tou/" target="_blank">Terms of Use</a>
     </div>
     """,
     unsafe_allow_html=True
