@@ -1,11 +1,20 @@
 import streamlit as st
 import llm_pipeline
+import logging
 import base64
 from utils.load_rag_data import load_data
 
 # ==============================
 #         CONFIG SECTION
 # ==============================
+
+
+# Logger config
+logging.basicConfig(
+    filename="app.log",          
+    level=logging.ERROR,         
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 # Logo and UI config
 LOGO_PATH = "logo.svg"
@@ -134,5 +143,7 @@ try:
                 break
         st.session_state.chat_history = new_history
 
-except Exception:
+except Exception as e:
     st.error("Some major errors occured. Please contact the administrators.")
+    logging.exception("Unhandled exception occurred")
+    

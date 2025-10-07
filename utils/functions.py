@@ -1,6 +1,7 @@
 from typing import Any
 from pandas import DataFrame
 
+
 def convert_to_df(json_object: Any) -> DataFrame:
     """Converts a response from the OEP-API into a pandas dataframe."""
     rows = []

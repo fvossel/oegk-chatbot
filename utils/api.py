@@ -8,6 +8,40 @@ from utils.gpt import request_sparql_query
 from pandas import DataFrame
 
 
+def resolve_uris(uri: str, oep_api_key: str) -> str:
+    """Resolves intern URIs so that they match the puplic available ressources from the OEP."""
+
+    if uri.startswith("https://openenergyplatform.org/ontology/oekg/input_datasets/"):
+        query = """
+                PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+                PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+                SELECT ?literal
+                WHERE {
+                <""" + uri + """>
+                <https://openenergyplatform.org/ontology/oeo/OEO_00390094> ?literal .
+                }"""
+        results = run_sparql(oep_api_key, query)
+        return results["results"]["bindings"][0]["literal"]["value"]
+    
+    elif uri.startswith("https://openenergyplatform.org/ontology/oekg"):
+        query = """
+                PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+                PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+                SELECT ?type ?typeLabel
+                WHERE {
+                <""" + uri + """> rdf:type ?type .
+                OPTIONAL { ?type rdfs:label ?typeLabel }
+                FILTER (?type = <https://openenergyplatform.org/ontology/oeo/OEO_00020227>)
+                }"""
+        results = run_sparql(oep_api_key, query)
+        if results["results"]["bindings"][0]["typeLabel"]["value"] == "scenario bundle":
+            return uri.replace("https://openenergyplatform.org/ontology/oekg/", "https://openenergyplatform.org/scenario-bundles/id/")
+
+    return uri
+
+
 def run_sparql(api_key: str, query: str, retries: int = 3, delay: int = 2) -> Any:
     """Runs a SPARQL query against the Open Energy Platform Endpoint with retries"""
     HEADER = {"Authorization": f"Token {api_key}"}
@@ -25,15 +59,16 @@ def run_sparql(api_key: str, query: str, retries: int = 3, delay: int = 2) -> An
         except Exception as e:
             if attempt == retries:
                 return loads("""{
-  "head": {
-    "vars": [
-      "nothing"
-    ]
-  },
-  "results": {
-    "bindings": []
-  }
-}""")
+                                "head": {
+                                    "vars": [
+                                    "nothing"
+                                    ]
+                                },
+                                "results": {
+                                    "bindings": []
+                                }
+                                }"""
+                            )
             sleep(delay)
 
 def get_bundle_uri_and_label(api_key: str, scenario_uri: str) -> tuple[str, str]:
@@ -128,4 +163,5 @@ PREFIX XSD: <http://www.w3.org/2001/XMLSchema#>
             results_df = DataFrame(grouped_rows)
 
 
+    results_df = results_df.map(lambda x: resolve_uris(x, oep_api_token))
     return results_df, f"Generated Query:\n```sparql\n{full_query}\n```\n\n"
