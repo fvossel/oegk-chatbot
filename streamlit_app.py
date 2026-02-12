@@ -72,12 +72,13 @@ st.markdown(
     <style>
     .oekg-footer {
         position: fixed;
-        left: 0; bottom: 0; width: 100vw;
+        left: 0; bottom: 10px; width: 100vw;
         text-align: center;
         color: #444;
         font-size: 0.92em;
         padding: 0.7em 0;
-        z-index: 0;
+        z-index: 9999999;
+        background-color:white;
     }
     .oekg-footer a {
         color: #2473c8;
@@ -95,8 +96,16 @@ st.markdown(
 st.markdown(
     """
     <style>
-    .streamlit-expanderHeader, .streamlit-chat-message {
+    /* Make expander headers scrollable horizontally */
+    .streamlit-expanderHeader {
         overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    /* Make chat messages scrollable horizontally */
+    .streamlit-chat-message {
+        overflow-x: auto;
+        white-space: nowrap;
     }
     </style>
     """,
