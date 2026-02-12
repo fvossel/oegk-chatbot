@@ -8,6 +8,7 @@ import numpy as np
 def load_data() -> tuple[str, Index, dict[str, Any], dict[str, Any], str, str]:
     """Loads the necessary data for the RAG system including documents and prompts."""
     openai_api_key = getenv("OPENAI_API_KEY")
+    oep_token = getenv("OEP_TOKEN")
 
     with open("summary_system_prompt.txt", "r") as f:
         summary_system_prompt = f.read()
@@ -30,7 +31,7 @@ def load_data() -> tuple[str, Index, dict[str, Any], dict[str, Any], str, str]:
     documents_dict = {doc["class"]: doc for doc in classes_list}
     documents_dict.update({rel["uri"]: rel for rel in relations_list})
 
-    return openai_api_key, faiss_index, documents_dict, ids, sparql_system_prompt, summary_system_prompt
+    return openai_api_key, faiss_index, documents_dict, ids, sparql_system_prompt, summary_system_prompt, oep_token
 
 def retrieve_top_k_similar_documents(nl_query: str, client: OpenAI, faiss_index, documents_dict: dict[str,str], ids, k: int = 5) -> list:
     """

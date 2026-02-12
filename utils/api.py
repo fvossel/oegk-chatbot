@@ -11,6 +11,7 @@ from pandas import DataFrame
 def resolve_uris(uri: str, oep_api_key: str) -> str:
     """Resolves intern URIs so that they match the puplic available ressources from the OEP."""
 
+    #Resolve datasets
     if uri.startswith("https://openenergyplatform.org/ontology/oekg/input_datasets/"):
         query = """
                 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -22,8 +23,12 @@ def resolve_uris(uri: str, oep_api_key: str) -> str:
                 <https://openenergyplatform.org/ontology/oeo/OEO_00390094> ?literal .
                 }"""
         results = run_sparql(oep_api_key, query)
-        return results["results"]["bindings"][0]["literal"]["value"]
+        literal: str = results["results"]["bindings"][0]["literal"]["value"]
+        if not literal.startswith("https://"):
+            literal = "https://openenergyplatform.org" + literal
+        return literal
     
+    #Resolve scenario bundles
     elif uri.startswith("https://openenergyplatform.org/ontology/oekg"):
         query = """
                 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -36,7 +41,7 @@ def resolve_uris(uri: str, oep_api_key: str) -> str:
                 FILTER (?type = <https://openenergyplatform.org/ontology/oeo/OEO_00020227>)
                 }"""
         results = run_sparql(oep_api_key, query)
-        if results["results"]["bindings"][0]["typeLabel"]["value"] == "scenario bundle":
+        if results["results"]["bindings"] and results["results"]["bindings"][0]["typeLabel"]["value"] == "scenario bundle":
             return uri.replace("https://openenergyplatform.org/ontology/oekg/", "https://openenergyplatform.org/scenario-bundles/id/")
 
     return uri
@@ -135,17 +140,30 @@ PREFIX XSD: <http://www.w3.org/2001/XMLSchema#>
             results_df = DataFrame()
   
     if not results_df.empty:
-        scenarios = get_scenarios(results_df)
-        if scenarios:
+        scenario_cols = get_scenarios(results_df)
+        if scenario_cols:
             bundle_to_scenarios = {}
-            for scenario in results_df[scenarios]:
+            for _, row in results_df[scenario_cols].iterrows():
+                scenario = row[scenario_cols[0]]  # scenario URI
                 uri = "<" + scenario + ">"
+
                 bundle_uri, bundle_label = get_bundle_uri_and_label(oep_api_token, uri)
-                scenario_label, sneario_acronym = get_label_and_acronym(oep_api_token, uri)
+                scenario_label, scenario_acronym = get_label_and_acronym(oep_api_token, uri)
+
                 if bundle_uri not in bundle_to_scenarios:
-                    bundle_to_scenarios[bundle_uri] = {"label": bundle_label, "scenarios": []}
-                
-                bundle_to_scenarios[bundle_uri]["scenarios"].append({"acronym": sneario_acronym, "label": scenario_label})
+                    bundle_to_scenarios[bundle_uri] = {
+                        "label": bundle_label,
+                        "scenarios": []
+                    }
+
+                extra_data = {col: row[col] for col in scenario_cols[1:]}
+                scenario_entry = {
+                    "acronym": scenario_acronym,
+                    "label": scenario_label,
+                }
+                # merge extra_data into scenario_entry
+                scenario_entry.update(extra_data)
+                bundle_to_scenarios[bundle_uri]["scenarios"].append(scenario_entry)
             
             grouped_rows = []
             for uri, data in bundle_to_scenarios.items():
@@ -153,15 +171,26 @@ PREFIX XSD: <http://www.w3.org/2001/XMLSchema#>
                     data["scenarios"],
                     key=lambda s: (s["acronym"], s["label"])
                 )
+
                 for i, scenario in enumerate(scenarios_sorted):
-                    grouped_rows.append({
+                    # Base row with bundle and scenario information
+                    row = {
                         "Bundle URI": uri if i == 0 else "",
                         "Bundle Label": data["label"] if i == 0 else "",
                         "Scenario Acronym": scenario["acronym"],
-                        "Scenario Label": scenario["label"]
-                    })
+                        "Scenario Label": scenario["label"],
+                    }
+
+                    # Add all additional scenario fields (flattened)
+                    for key, value in scenario.items():
+                        if key not in ("acronym", "label"):
+                            row[key] = value
+
+                    grouped_rows.append(row)
+
             results_df = DataFrame(grouped_rows)
-
-
+    
+    
     results_df = results_df.map(lambda x: resolve_uris(x, oep_api_token))
+    results_df = results_df.T.drop_duplicates().T
     return results_df, f"Generated Query:\n```sparql\n{full_query}\n```\n\n"

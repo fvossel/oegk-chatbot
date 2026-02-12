@@ -39,6 +39,7 @@ The following prefixes are already available and should be used when needed:
 
 - Use exact URIs as provided in the context
 - Follow SPARQL syntax precisely
+- Do not remove '<' '>' around URLS in the SPARQL.
 - Handle case variations appropriately
 - Consider both exact matches and broader semantic relationships
 - Use appropriate SPARQL constructs (SELECT, WHERE, FILTER, OPTIONAL, CONTAINS)
@@ -53,7 +54,7 @@ The following prefixes are already available and should be used when needed:
 ##Example Queries
 
 # 1. Give me all bundles in which institution Fraunhofer ISI was involved.
-
+```SPARQL
 SELECT DISTINCT ?s ?label WHERE {
   ?s ?p ?o.
   ?p rdfs:label "has organisation"^^XSD:string.
@@ -61,10 +62,10 @@ SELECT DISTINCT ?s ?label WHERE {
   FILTER(CONTAINS(LCASE(STR(?orgLabel)), "Fraunhofer ISI")).
   ?s rdfs:label ?label.
 }
-
+```
 
 # 2. Give me all bundles that cover, amongst others, the energy transformation sector and industry sector.
-
+```SPARQL
 SELECT DISTINCT ?s ?label WHERE{
 {
 ?s ?p ?o.
@@ -84,10 +85,10 @@ UNION
 FILTER(CONTAINS(?secLabel, "industry sector")).
 }
 }
-
+```
 
 # 3. Give me all bundles that cover only the energy transformation sector.
-
+```SPARQL
 SELECT DISTINCT ?s ?name WHERE{
 {
 ?s oeo:OEO_00020439 ?o.
@@ -104,9 +105,10 @@ MINUS
 FILTER(?sec2 != oeo:OEO_00000158 && ?o != ?o2)
 }
 }
+```
 
 # 4. Give me all bundles that have the sufficency descriptor tag and have a scenario for the year 2040.
-
+```SPARQL
 SELECT DISTINCT ?s ?name WHERE {
 ?s oeo:OEO_00390071 ?o.
 ?s rdfs:label ?name.
@@ -117,10 +119,10 @@ FILTER(CONTAINS(?label, "sufficiency")).
 ?scenario oeo:OEO_00020440 ?year.
 FILTER(CONTAINS(str(?year), "2040")).
 }
-
+```
 
 # 5. Give me all bundles to which Felix Maurer contributed as author to a publication.
-
+```SPARQL
 SELECT DISTINCT ?s ?name ?pub ?publabel WHERE {
 ?s obo:BFO_0000051 ?pub.
 ?pub a oeo:OEO_00020012.
@@ -130,30 +132,30 @@ SELECT DISTINCT ?s ?name ?pub ?publabel WHERE {
 ?author rdfs:label ?authorLabel.
 FILTER(CONTAINS(?authorLabel, "Felix Maurer")).
 }
-
+```
 
 # 6. Give me all scenarios that have dataset abbb_simulation_parameter as input data. 
-
+```SPARQL
 SELECT DISTINCT ?s ?name  WHERE{
 ?s oeo:OEO_00020437 ?input. 
 ?s rdfs:label ?name.
 ?input rdfs:label "abbb_simulation_parameter"^^XSD:string.
 }
-
+```
 
 # 7. Give me all scenario that have dataset Primary and final energy consumption of scenario KS95 as output data. 
 
-
+```SPARQL
 SELECT DISTINCT ?s ?name  WHERE{
 ?s a oeo:OEO_00000365. #scenario factsheet
 ?s rdfs:label ?name.
 ?s oeo:OEO_00020436 ?output. 
 ?output rdfs:label "Primary and final energy consumption of scenario KS95"^^XSD:string.
 }
-
+```
 
 # 8. Give me all scenarios that belong to bundle oekg:59cf408f-8ab1-7fe1-0175-e3e50e15eeaa or bundle oekg:8a59cb1b-ea99-0594-a5ef-7d59f1b7fab3.
-
+```SPARQL
 SELECT DISTINCT ?s ?name ?scenario ?scenlabel WHERE{
  ?s obo:BFO_0000051 ?scenario.
  ?s rdfs:label ?name.
@@ -161,10 +163,10 @@ SELECT DISTINCT ?s ?name ?scenario ?scenlabel WHERE{
  ?scenario rdfs:label ?scenlabel.
 FILTER(?s = oekg:59cf408f-8ab1-7fe1-0175-e3e50e15eeaa || ?s = oekg:8a59cb1b-ea99-0594-a5ef-7d59f1b7fab3).
 }
-
+```
 
 # 9. Give me all scenarios of type target driven scenarios that are for Germany and project the year 2050 or later.
-
+```SPARQL
 SELECT DISTINCT ?s ?name ?year WHERE{
 ?s oeo:OEO_00390073 oeo:OEO_00020247. 
 ?s rdfs:label ?name.
@@ -173,10 +175,10 @@ SELECT DISTINCT ?s ?name ?year WHERE{
 ?s oeo:OEO_00020440 ?year. 
 FILTER (?year >= "2050-01-01"^^XSD:dateTime).
 }
-
+```
 
 # 10. Give me all scenarios about Germany, either as study region or interacting region, and project the year 2030.
-
+```SPARQL
 SELECT DISTINCT ?s ?name WHERE{
 {?s oeo:OEO_00020220 ?land. 
 ?s rdfs:label ?name.
@@ -189,10 +191,10 @@ UNION
 ?s oeo:OEO_00020440 ?year.} 
 FILTER CONTAINS(str(?year),"2030")
 }
-
+```
 
 # 11. Give me all scenarios that are for Germany and project the year 2030, where the respective bundle covers the energy transformation sector.
-
+```SPARQL
 SELECT DISTINCT ?scenario ?scename ?s ?name WHERE{
 ?s oeo:OEO_00020439 ?o.
 ?o a*/rdfs:subClassOf* oeo:OEO_00000158.
@@ -205,30 +207,31 @@ SELECT DISTINCT ?scenario ?scename ?s ?name WHERE{
 ?scenario oeo:OEO_00020440 ?year.
 FILTER CONTAINS(str(?year),"2030")
 }
+```
 
-
-# 12. Give me all datasets that are part of scenario <http://openenergy-platform.org/ontology/oekg/scenario/444fca1a-8e8f-1e56-9773-6852691621b0>.
-
+# 12. Give me all datasets that are part of scenario 444fca1a-8e8f-1e56-9773-6852691621b0.
+```SPARQL
 SELECT DISTINCT ?dataset ?label WHERE{
-<http://openenergy-platform.org/ontology/oekg/scenario/444fca1a-8e8f-1e56-9773-6852691621b0> ?p ?dataset.
+<https://openenergyplatform.org/ontology/oekg/scenario/444fca1a-8e8f-1e56-9773-6852691621b0> ?p ?dataset.
 ?dataset rdfs:label ?label.
 FILTER(?p = oeo:OEO_00020436 || ?p = oeo:OEO_00020437). 
 }
+```
 
-
-# 13. Give me all datasets that are part of bundle <http://openenergy-platform.org/ontology/oekg/6ddf7ede-c3a5-93c8-4385-b975c628d610>.
-
+# 13. Give me all datasets that are part of bundle 6ddf7ede-c3a5-93c8-4385-b975c628d610.
+```SPARQL
 SELECT DISTINCT ?dataset ?name WHERE{
-<http://openenergy-platform.org/ontology/oekg/6ddf7ede-c3a5-93c8-4385-b975c628d610> obo:BFO_0000051 ?scenario.
+<https://openenergyplatform.org/ontology/oekg/6ddf7ede-c3a5-93c8-4385-b975c628d610> obo:BFO_0000051 ?scenario.
 ?s rdfs:label ?name.
 ?scenario a oeo:OEO_00000365. #scenario factsheet
 ?scenario ?p ?dataset.
 ?dataset rdfs:label ?name.
 FILTER(?p = oeo:OEO_00020436 || ?p = oeo:OEO_00020437). 
 }
+```
 
 # 14. Give me all scenarios that belong to a bundle that is modelled within the MESSAGEix framework.
-
+```SPARQL
 SELECT DISTINCT ?scen ?name WHERE{
 ?s obo:BFO_0000051 ?f.
 ?f a oeo:OEO_00000172.
@@ -237,20 +240,20 @@ SELECT DISTINCT ?scen ?name WHERE{
 ?scenario a oeo:OEO_00000365. 
 ?scen rdfs:label ?name.
 }
-
+```
 
 # 15. Give me all bundles that are modelled within the MESSAGEix framework.
-    
+ ```SPARQL
 SELECT DISTINCT ?s ?name WHERE{
 ?s obo:BFO_0000051 ?f.
 ?f a oeo:OEO_00000172.
 ?s rdfs:label ?name.
 ?f rdfs:label "MESSAGEix"^^XSD:string.
 }  
-
+```
 
 # 16. Give me all scenarios that belong to a bundle that is modelled with the oemof abbb model.
-
+```SPARQL
 SELECT DISTINCT ?scen ?name WHERE {
 ?s obo:BFO_0000051 ?m.
 ?m a oeo:OEO_00000277.
@@ -260,10 +263,10 @@ FILTER(CONTAINS(?modelLabel, "oemof_abbb")).
 ?scen a oeo:OEO_00000365.
 ?scen rdfs:label ?name.
 }
-   
+```
 
 # 17. Give me all bundles that are modelled with the oemof abbb model.
-
+```SPARQL
 SELECT DISTINCT ?s ?name WHERE {
 ?s obo:BFO_0000051 ?m.
 ?m a oeo:OEO_00000277.
@@ -271,10 +274,10 @@ SELECT DISTINCT ?s ?name WHERE {
 ?m rdfs:label ?mLabel.
 FILTER(CONTAINS(?mLabel, "oemof_abbb")).
 }
-
+```
 
 # 18. Give me all scenarios that belong to a bundle modelled with the oemof abbb model and that project the years 2030 and 2040.
-
+```SPARQL
 SELECT DISTINCT ?scen ?name WHERE{
 {?s obo:BFO_0000051 ?m.
 ?m a oeo:OEO_00000277.
@@ -296,10 +299,10 @@ UNION
 FILTER CONTAINS(str(?year),"2040").
 }.
 }
-
+```
 
 # 19. Give me all dois of publications that are about a bundle that contain a scenario for the year 2050.
-
+```SPARQL
 SELECT DISTINCT ?d ?p ?name WHERE{
 ?s obo:BFO_0000051 ?p.
 ?p rdfs:label ?name.
@@ -310,9 +313,10 @@ SELECT DISTINCT ?d ?p ?name WHERE{
 ?scen oeo:OEO_00020440 ?year.
 FILTER CONTAINS(str(?year),"2050").
 }
+```
 
 # 20. Give me scenarios related to Brandenburg
-
+```SPARQL
 SELECT DISTINCT ?scenario ?scenarioLabel WHERE {
   ?bundle a oeo:OEO_00020227.
   ?bundle rdfs:label ?bundleLabel.
@@ -321,6 +325,7 @@ SELECT DISTINCT ?scenario ?scenarioLabel WHERE {
   ?scenario rdfs:label ?scenarioLabel.
   FILTER(CONTAINS(LCASE(STR(?bundleLabel)), "brandenburg"))
 }
+```
 
 # 21. Give me scenarios related to NRW
 
@@ -332,9 +337,10 @@ SELECT DISTINCT ?scenario ?scenarioLabel WHERE {
   ?scenario rdfs:label ?scenarioLabel.
   FILTER(CONTAINS(LCASE(STR(?bundleLabel)), "nrw"))
 }
+```
 
 # 22. Give me all scenarios where Hannah Förster is involved as contact person.
-
+```SPARQL
 SELECT DISTINCT ?scenario ?label WHERE {
   ?bundle oeo:OEO_00000508 ?contact.
   ?contact rdfs:label ?contactLabel.
@@ -343,8 +349,10 @@ SELECT DISTINCT ?scenario ?label WHERE {
   ?scenario a oeo:OEO_00000365.
   ?scenario rdfs:label ?label.
 }
+```
 
 # 23. Give me all scenarios where Hannah Förster is involved.
+```SPARQL
 
 SELECT DISTINCT ?bundleOrScenario ?label ?role WHERE {
 
@@ -373,7 +381,7 @@ SELECT DISTINCT ?bundleOrScenario ?label ?role WHERE {
     BIND("author" AS ?role)
   }
 }
-
+```
 
 ## Output Format
 
