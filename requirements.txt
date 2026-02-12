@@ -10,6 +10,7 @@ charset-normalizer==3.4.2
 click==8.2.1
 colorama==0.4.6
 distro==1.9.0
+dotenv==0.9.9
 faiss-cpu==1.11.0.post1
 gitdb==4.0.12
 GitPython==3.1.45
@@ -36,6 +37,7 @@ pydantic_core==2.33.2
 pydeck==0.9.1
 pyparsing==3.2.3
 python-dateutil==2.9.0.post0
+python-dotenv==1.2.1
 pytz==2025.2
 referencing==0.36.2
 requests==2.32.4
