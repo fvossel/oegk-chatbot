@@ -78,7 +78,6 @@ st.markdown(
         font-size: 0.92em;
         padding: 0.7em 0;
         z-index: -2;
-        background-color: white;
     }
     .oekg-footer a {
         color: #2473c8;
