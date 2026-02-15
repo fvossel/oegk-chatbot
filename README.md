@@ -34,18 +34,12 @@ pip install -r requirements.txt
 
 ### 3. Configure OpenAI and OEP Credentials
 
-```bash
-export OPENAI_API_KEY="sk-..."
-```
-Modify the .toml file at `.streamlit/secrets.toml` with:
+Modify the .env file at `root` level with:
 
-```toml
-oep_username = "YOUR_OEP_USERNAME"
-oep_password = "YOUR_OEP_PASSWORD"
-oep_token = "YOUR_OEP_API_TOKEN"
+```.env
+OEP_TOKEN = "YOUR_OEP_API_TOKEN"
+OPENAI_API_KEY = "YOUR_OPENAI_API_KEY"
 ```
-
-> **Note:** If you do not provide OEP credentials, the app will load a public (possibly outdated) OEKG snapshot from GitHub.
 
 ### 4. Prepare Resources
 
