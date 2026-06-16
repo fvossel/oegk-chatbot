@@ -15,7 +15,6 @@ def request_sparql_query(query: str, documents: list, client: OpenAI, system_pro
     response = client.responses.create(
         model="gpt-5.4-mini",
         input=messages,
-        reasoning={"effort": "minimal"}
     )
 
     sparql = response.output_text
