@@ -13,7 +13,7 @@ def request_sparql_query(query: str, documents: list, client: OpenAI, system_pro
     ]
 
     response = client.responses.create(
-        model="gpt-5",
+        model="gpt-5.4-mini",
         input=messages,
         reasoning={"effort": "minimal"}
     )
@@ -32,7 +32,7 @@ def summarise_sparql_results(sparql_results: str, nl_query: str, client: OpenAI,
         ]
         
         response = client.responses.create(
-            model="gpt-5-nano",
+            model="gpt-5.4-nano",
             input=messages,
         )
 
