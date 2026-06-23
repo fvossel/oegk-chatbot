@@ -1,5 +1,7 @@
 .venv/
 __pycache__/
 *app.log
+logs/
+query_cache.json
 .streamlit/secrets.toml
 .env

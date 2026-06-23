@@ -1,71 +1,243 @@
+"""Streamlit entry point for the OEKG chatbot.
+
+This module is intentionally thin: it wires together the components from the
+:mod:`oekg` package and renders the UI. All domain logic lives in that package.
+"""
+
 from dotenv import load_dotenv
+
 load_dotenv(override=True)
-import streamlit as st
-import llm_pipeline
-import logging
+
 import base64
-from utils.load_rag_data import load_data
+import io
+import logging
+import uuid
+
+import pandas as pd
+import streamlit as st
+
+from oekg.cache import QueryCache
+from oekg.config import get_config
+from oekg.logging_setup import configure_logging
+from oekg.pipeline import RagPipeline
+from oekg.resources import load_resources
 
 # ==============================
 #         CONFIG SECTION
 # ==============================
 
+CONFIG = get_config()
+configure_logging(CONFIG)
+logger = logging.getLogger(__name__)
 
-# Logger config
-logging.basicConfig(
-    filename="app.log",          
-    level=logging.ERROR,         
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
-
-# Logo and UI config
-LOGO_PATH = "logo.svg"
 APP_TITLE = "Ask OEKG"
-APP_ICON = LOGO_PATH
-HEADER_HEIGHT = 48
+_XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+_CORRECTION_NOTE = "ℹ️ The query was automatically refined before returning these results."
 
-# Chat history limits
-MAX_USER_HISTORY = 5
+
+# ==============================
+#       CACHED RESOURCES
+# ==============================
+
+
+@st.cache_resource(show_spinner=False)
+def get_query_cache() -> QueryCache:
+    return QueryCache(CONFIG.cache_path, enabled=CONFIG.cache_enabled)
+
+
+@st.cache_resource(show_spinner="Setting up Language Model and document retrieval...")
+def get_pipeline() -> RagPipeline:
+    resources = load_resources(CONFIG)
+    return RagPipeline(resources, get_query_cache(), CONFIG)
+
+
+# ==============================
+#            HELPERS
+# ==============================
+
+
+def trim_history() -> None:
+    """Keep only the last ``max_user_history`` user turns (plus responses)."""
+    user_count = 0
+    trimmed: list[dict] = []
+    for turn in reversed(st.session_state.chat_history):
+        if turn["role"] == "user":
+            user_count += 1
+        trimmed.insert(0, turn)
+        if user_count == CONFIG.max_user_history:
+            break
+    st.session_state.chat_history = trimmed
+
+
+def _link_column_config(df: pd.DataFrame) -> dict:
+    """Render columns that hold OEP/HTTP URLs as clickable links."""
+    config = {}
+    for col in df.columns:
+        values = df[col].dropna().astype(str)
+        if len(values) and (values.str.startswith("http").mean() > 0.5):
+            config[col] = st.column_config.LinkColumn(col)
+    return config
+
+
+def render_results_table(df: pd.DataFrame, turn_id: str) -> None:
+    """Show the result DataFrame interactively, with CSV/Excel download buttons."""
+    st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        column_config=_link_column_config(df) or None,
+    )
+    csv_col, xlsx_col = st.columns(2)
+    csv_col.download_button(
+        "⬇️ Download CSV",
+        df.to_csv(index=False).encode("utf-8"),
+        file_name="oekg_results.csv",
+        mime="text/csv",
+        key=f"csv_{turn_id}",
+        use_container_width=True,
+    )
+    try:
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="Results")
+        xlsx_col.download_button(
+            "⬇️ Download Excel",
+            buffer.getvalue(),
+            file_name="oekg_results.xlsx",
+            mime=_XLSX_MIME,
+            key=f"xlsx_{turn_id}",
+            use_container_width=True,
+        )
+    except Exception:  # noqa: BLE001 - Excel export is a nice-to-have
+        logger.warning("Excel export unavailable", exc_info=True)
+
+
+def render_sparql_panel(full_query: str, turn_id: str, pipeline: RagPipeline) -> None:
+    """Show the generated SPARQL in a collapsible, copyable panel with an explainer."""
+    with st.expander("🔍 Show the SPARQL query"):
+        st.code(full_query, language="sparql")
+        explanation_key = f"explanation_{turn_id}"
+        if st.button("🧠 Explain this query in plain language", key=f"explain_{turn_id}"):
+            with st.spinner("Explaining query..."):
+                st.session_state[explanation_key] = (
+                    pipeline.explain_sparql(full_query) or "_No explanation available._"
+                )
+        if st.session_state.get(explanation_key):
+            st.markdown(st.session_state[explanation_key])
+
+
+def render_assistant_extras(turn: dict, pipeline: RagPipeline) -> None:
+    """Render the correction note, SPARQL panel and result table for a turn."""
+    if turn.get("corrected"):
+        st.caption(_CORRECTION_NOTE)
+    if turn.get("full_query"):
+        render_sparql_panel(turn["full_query"], turn["turn_id"], pipeline)
+    if turn.get("results_df") is not None:
+        render_results_table(turn["results_df"], turn["turn_id"])
+
+
+def render_assistant_turn(turn: dict, pipeline: RagPipeline) -> None:
+    with st.chat_message("assistant"):
+        st.markdown(turn["content"])
+        render_assistant_extras(turn, pipeline)
+
+
+def handle_question(
+    question: str,
+    pipeline: RagPipeline,
+    prefer_cache: bool = True,
+    forced_sparql: str | None = None,
+) -> None:
+    """Run a question through the pipeline and update the chat history/UI."""
+    # Drop any stale "cache this question" offer from a previous turn.
+    st.session_state.pop("last_cacheable", None)
+
+    history = [(t["role"], t["content"]) for t in st.session_state.chat_history]
+    st.session_state.chat_history.append({"role": "user", "content": question})
+    with st.chat_message("user"):
+        st.markdown(question)
+
+    result = pipeline.answer(
+        question,
+        history=history,
+        status=st.spinner,
+        prefer_cache=prefer_cache,
+        stream=True,
+        forced_sparql=forced_sparql,
+    )
+
+    turn_id = uuid.uuid4().hex[:12]
+    with st.chat_message("assistant"):
+        if result.summary_stream is not None:
+            content = st.write_stream(result.summary_stream) or "The results are shown below."
+        else:
+            content = result.answer
+            st.markdown(content)
+        turn = {
+            "role": "assistant",
+            "content": content,
+            "full_query": result.full_query,
+            "sparql": result.sparql,
+            "results_df": result.results_df,
+            "corrected": result.corrected,
+            "turn_id": turn_id,
+        }
+        render_assistant_extras(turn, pipeline)
+
+    st.session_state.chat_history.append(turn)
+
+    # Remember the latest query-backed turn so the user can choose to cache it.
+    # (Bot-information replies and cache hits have nothing new to save.)
+    if result.sparql and not result.is_bot_message and not result.cache_hit:
+        st.session_state.last_cacheable = {"question": question, "sparql": result.sparql}
+
+    trim_history()
+
+
+def save_to_cache(question: str, sparql: str, query_cache: QueryCache, pipeline: RagPipeline) -> None:
+    """Store a question/query pair plus its embedding (for semantic matching)."""
+    try:
+        embedding = pipeline.embed(question)
+    except Exception:  # noqa: BLE001 - embedding is only needed for semantic match
+        logger.warning("Could not compute embedding for cache entry", exc_info=True)
+        embedding = None
+    query_cache.put(question, sparql, embedding=embedding)
 
 
 # ==============================
 #       STREAMLIT FRONTEND
 # ==============================
 
-st.set_page_config(
-    page_title=APP_TITLE,
-    page_icon=APP_ICON
-)
+st.set_page_config(page_title=APP_TITLE, page_icon=str(CONFIG.logo_path))
 
-# Privacy notice (place this PROMINENTLY)
 st.warning(
     "⚠️ **Privacy Notice:**\n\n"
     "- Your questions, selected context, and graph snippets will be sent to an external Language Model API (OpenAI) "
     "(potentially processed in the USA). Do not submit personal, confidential, or sensitive information."
 )
 
-# Logo for the header
-with open(LOGO_PATH, "rt") as f:
+with open(CONFIG.logo_path, "rt") as f:
     svg_logo = f.read()
-svgb64 = base64.b64encode(svg_logo.encode('utf-8')).decode()
+svgb64 = base64.b64encode(svg_logo.encode("utf-8")).decode()
 
 st.markdown(
     f"""
     <div style='display: flex; align-items: center; gap: 1em; margin-bottom:2em;'>
-        <a href='https://openenergyplatform.org/'><img src="data:image/svg+xml;base64,{svgb64}" height="{HEADER_HEIGHT}"/></a>
+        <a href='https://openenergyplatform.org/'><img src="data:image/svg+xml;base64,{svgb64}" height="48"/></a>
         <span style='font-size:2em; font-weight: bold;'>Chat with OEKG</span>
     </div>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 st.info(
     """
-**Notice:**  
-- The bot's answers may be incomplete or not fully up-to-date.  
-- Complex queries may not be understood as intended.  
+**Notice:**
+- The bot's answers may be incomplete or not fully up-to-date.
+- Complex queries may not be understood as intended.
 - For authoritative and most recent data visit [openenergyplatform.org](https://openenergyplatform.org/).
-""")
+"""
+)
 
 st.markdown(
     """
@@ -80,96 +252,148 @@ st.markdown(
         z-index: 9999999;
         background-color:white;
     }
-    .oekg-footer a {
-        color: #2473c8;
-        text-decoration: none;
-        font-weight: 600;
-    }
-    .oekg-footer a:hover {
-        text-decoration: underline;
-    }
+    .oekg-footer a { color: #2473c8; text-decoration: none; font-weight: 600; }
+    .oekg-footer a:hover { text-decoration: underline; }
     .block-container { padding-bottom: 70px !important; }
+    .streamlit-expanderHeader { overflow-x: auto; white-space: nowrap; }
+    .streamlit-chat-message { overflow-x: auto; white-space: nowrap; }
     </style>
-    """,
-    unsafe_allow_html=True
-)
-st.markdown(
-    """
-    <style>
-    /* Make expander headers scrollable horizontally */
-    .streamlit-expanderHeader {
-        overflow-x: auto;
-        white-space: nowrap;
-    }
-
-    /* Make chat messages scrollable horizontally */
-    .streamlit-chat-message {
-        overflow-x: auto;
-        white-space: nowrap;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-st.markdown(
-    """
     <div class="oekg-footer">
-        Powered by <a href="https://openenergyplatform.org/" target="_blank">Open Energy Platform</a> | 
-        <a href="https://github.com/fvossel/oegk-chatbot" target="_blank">Source</a> | 
-        <a href="https://openenergyplatform.org/contact/" target="_blank">Contact</a> | 
-        <a href="https://openenergyplatform.org/legal/privacy_policy/" target="_blank">Privacy Policy</a> | 
-        <a href="https://openenergyplatform.org/legal/tou/" target="_blank">Terms of Use</a> | 
+        Powered by <a href="https://openenergyplatform.org/" target="_blank">Open Energy Platform</a> |
+        <a href="https://github.com/fvossel/oegk-chatbot" target="_blank">Source</a> |
+        <a href="https://openenergyplatform.org/contact/" target="_blank">Contact</a> |
+        <a href="https://openenergyplatform.org/legal/privacy_policy/" target="_blank">Privacy Policy</a> |
+        <a href="https://openenergyplatform.org/legal/tou/" target="_blank">Terms of Use</a> |
         <a href="https://openenergyplatform.org/legal/privacy_policy/" target="_blank">Imprint</a>
     </div>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
+
+if not CONFIG.openai_api_key or not CONFIG.oep_token:
+    st.error(
+        "Missing credentials: set `OPENAI_API_KEY` and `OEP_TOKEN` in your `.env` "
+        "(see `.env.example`) and restart the app."
+    )
+    st.stop()
 
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-if "openai_api_key" not in st.session_state or "faiss_index" not in st.session_state or "documents_dict" not in st.session_state or "ids" not in st.session_state or "sparql_system_prompt" not in st.session_state or "summary_system_prompt" not in st.session_state or "oep_token" not in st.session_state:
-    with st.spinner("Setting up Language Model and document retrieval..."):
-        openai_api_key, faiss_index, documents_dict, ids, sparql_system_prompt, summary_system_prompt, oep_token = load_data()
-        st.session_state.openai_api_key = openai_api_key
-        st.session_state.faiss_index = faiss_index
-        st.session_state.documents_dict = documents_dict
-        st.session_state.ids = ids
-        st.session_state.sparql_system_prompt = sparql_system_prompt
-        st.session_state.summary_system_prompt = summary_system_prompt
-        st.session_state.oep_token = oep_token
+pipeline = get_pipeline()
+query_cache = get_query_cache()
 
+# --- Sidebar: re-run previously cached questions ------------------------
+with st.sidebar:
+    st.header("💾 Saved questions")
+    st.caption(
+        "Pick a previously answered question to re-run it instantly using its "
+        "cached SPARQL query."
+    )
+    cached_entries = query_cache.list_questions()
+    if cached_entries:
+        selected = st.selectbox(
+            "Previous questions",
+            options=[e.question for e in cached_entries],
+            index=None,
+            placeholder="Choose a question...",
+        )
+        if st.button("Run cached query", disabled=selected is None, use_container_width=True):
+            st.session_state.pending_question = selected
+        if st.button("Clear cache", use_container_width=True):
+            query_cache.clear()
+            st.rerun()
+    else:
+        st.caption("No questions cached yet.")
 
+    # Manually add (or overwrite) a question/SPARQL pair in the shared cache.
+    with st.expander("➕ Cache a query manually"):
+        with st.form("manual_cache_form", clear_on_submit=True):
+            manual_question = st.text_input("Question")
+            manual_sparql = st.text_area(
+                "SPARQL query",
+                height=160,
+                help="Enter the query without the standard PREFIX block — it is added automatically on execution.",
+            )
+            saved = st.form_submit_button("Save to cache", use_container_width=True)
+        if saved:
+            if manual_question.strip() and manual_sparql.strip():
+                save_to_cache(manual_question, manual_sparql, query_cache, pipeline)
+                logger.info("manual cache entry added | question=%r", manual_question.strip())
+                st.success("Saved to cache.")
+                st.rerun()
+            else:
+                st.warning("Please provide both a question and a SPARQL query.")
 
-# Show chat history (user & assistant), in order
-for role, msg in st.session_state.chat_history:
-    with st.chat_message(role):
-        st.markdown(msg)
-try:
-    # Message input field / core interaction
-    if prompt := st.chat_input("Ask me something about OEKG..."):
-        st.session_state.chat_history.append(("user", prompt))
+# Show chat history (user & assistant), in order.
+for past_turn in st.session_state.chat_history:
+    if past_turn["role"] == "user":
         with st.chat_message("user"):
-            st.markdown(prompt)
+            st.markdown(past_turn["content"])
+    else:
+        render_assistant_turn(past_turn, pipeline)
 
-        answer = llm_pipeline.call_rag_pipeline(nl_query=prompt, streamlit_module=st, openai_api_key=st.session_state.openai_api_key, faiss_index=st.session_state.faiss_index, documents_dict=st.session_state.documents_dict, ids=st.session_state.ids, sparql_system_prompt=st.session_state.sparql_system_prompt, summary_system_prompt=st.session_state.summary_system_prompt, oep_api_token=st.session_state.oep_token)
-
-        st.session_state.chat_history.append(("assistant", answer))
+try:
+    # A pending semantic-cache suggestion takes priority: ask the user to confirm.
+    semantic = st.session_state.get("semantic_pending")
+    if semantic:
+        with st.chat_message("user"):
+            st.markdown(semantic["question"])
         with st.chat_message("assistant"):
-            st.markdown(answer)
+            st.info(
+                f"I don't have an exact saved answer for this, but a similar saved "
+                f"question exists:\n\n> **{semantic['match_question']}**\n\n"
+                f"(similarity {semantic['similarity']:.0%}). Use its saved query, or "
+                "generate a fresh answer?"
+            )
+            use_col, fresh_col = st.columns(2)
+            use_saved = use_col.button("Use the saved query", use_container_width=True)
+            generate_fresh = fresh_col.button("Generate a fresh answer", use_container_width=True)
+        if use_saved:
+            st.session_state.pop("semantic_pending", None)
+            handle_question(semantic["question"], pipeline, forced_sparql=semantic["sparql"])
+        elif generate_fresh:
+            st.session_state.pop("semantic_pending", None)
+            handle_question(semantic["question"], pipeline, prefer_cache=False)
 
-        # Limit chat history: only store last MAX_USER_HISTORY user turns (plus responses)
-        user_count = 0
-        new_history = []
-        for role, msg in reversed(st.session_state.chat_history):
-            if role == "user":
-                user_count += 1
-            new_history.insert(0, (role, msg))
-            if user_count == MAX_USER_HISTORY:
-                break
-        st.session_state.chat_history = new_history
+    # A cached question selected in the sidebar takes priority this run.
+    pending = st.session_state.pop("pending_question", None)
+    if pending:
+        handle_question(pending, pipeline, prefer_cache=True)
 
-except Exception as e:
-    st.error("Some major errors occured. Please contact the administrators.")
-    logging.exception("Unhandled exception occurred")
-    
+    if prompt := st.chat_input(
+        "Ask me something about OEKG...", max_chars=CONFIG.max_input_chars
+    ):
+        # Offer the closest paraphrase from the cache (if any) before generating.
+        match = None
+        if query_cache.get(prompt) is None:
+            match = pipeline.find_semantic_match(prompt)
+        if match is not None:
+            entry, similarity = match
+            st.session_state.semantic_pending = {
+                "question": prompt,
+                "match_question": entry.question,
+                "sparql": entry.sparql,
+                "similarity": similarity,
+            }
+            st.rerun()
+        else:
+            handle_question(prompt, pipeline, prefer_cache=True)
+
+    # Explicit caching of the most recent query-backed turn.
+    last = st.session_state.get("last_cacheable")
+    if last:
+        if st.button(f"💾 Cache this question + query: “{last['question']}”"):
+            save_to_cache(last["question"], last["sparql"], query_cache, pipeline)
+            logger.info("cached chat turn | question=%r", last["question"])
+            st.session_state.pop("last_cacheable", None)
+            st.success("Question and query saved to the shared cache.")
+            st.rerun()
+
+except Exception:
+    error_id = uuid.uuid4().hex[:8]
+    st.error(
+        f"An unexpected error occurred (reference `{error_id}`). "
+        "Please try again or contact the administrators."
+    )
+    logger.exception("Unhandled exception occurred | error_id=%s", error_id)

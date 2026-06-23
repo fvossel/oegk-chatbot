@@ -1,0 +1,51 @@
+[project]
+name = "oekg-chatbot"
+version = "0.1.0"
+description = "A GPT-powered chatbot for exploring and querying the Open Energy Knowledge Graph (OEKG) via SPARQL."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+
+# Direct (top-level) dependencies. The pinned transitive closure used for
+# reproducible installs lives in requirements.txt.
+dependencies = [
+    "streamlit>=1.54",
+    "openai>=1.97",
+    "faiss-cpu>=1.11",
+    "numpy>=2.0",
+    "pandas>=2.0",
+    "python-dotenv>=1.0",
+    "requests>=2.32",
+    "tabulate>=0.9",   # required by pandas.DataFrame.to_markdown
+    "openpyxl>=3.1",   # Excel export of result tables
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+    "mypy>=1.8",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["oekg"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F"]
+# E402: streamlit_app.py intentionally imports after load_dotenv().
+# E501/E741: long prompt strings and short loop names are fine here.
+ignore = ["E501", "E741", "E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+files = ["oekg"]
+ignore_missing_imports = true
