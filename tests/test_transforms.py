@@ -1,4 +1,4 @@
-from pandas import DataFrame
+from pandas import DataFrame, isna
 
 from oekg.transforms import convert_to_df, get_scenarios
 
@@ -18,7 +18,9 @@ def test_convert_to_df_fills_missing_bindings_with_none():
     df = convert_to_df(data)
     assert list(df.columns) == ["s", "label"]
     assert df.iloc[0]["label"] == "L"
-    assert df.iloc[1]["label"] is None
+    # Missing bindings are null; pandas may represent this as None or NaN
+    # depending on its version, and downstream code treats both as empty.
+    assert isna(df.iloc[1]["label"])
 
 
 def test_convert_to_df_empty_bindings():
