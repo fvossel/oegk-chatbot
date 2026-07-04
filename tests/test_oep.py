@@ -107,3 +107,72 @@ def test_resolve_uri_passes_through_non_oekg_values():
     client = OEPClient("token", get_config())
     assert client.resolve_uri("just a label") == "just a label"
     assert client.resolve_uri(None) is None
+
+
+def _label_bindings(values):
+    return {
+        "head": {"vars": ["label"]},
+        "results": {"bindings": [{"label": {"value": v}} for v in values]},
+    }
+
+
+def test_find_near_miss_labels_returns_distinct(monkeypatch):
+    client = OEPClient("token", get_config())
+    captured = {}
+
+    def fake(query, strict=False):
+        captured["q"] = query
+        return _label_bindings(["Germany", "Germany", "Germany 2030"])
+
+    monkeypatch.setattr(client, "run_sparql", fake)
+    out = client.find_near_miss_labels(["Germany"], 8)
+    assert out == ["Germany", "Germany 2030"]
+    assert "CONTAINS" in captured["q"] and "LCASE" in captured["q"] and "LIMIT" in captured["q"]
+
+
+def test_find_near_miss_labels_empty_cases(monkeypatch):
+    client = OEPClient("token", get_config())
+    calls = []
+
+    def fake(query, strict=False):
+        calls.append(query)
+        return dict(_EMPTY_RESULT)
+
+    monkeypatch.setattr(client, "run_sparql", fake)
+    assert client.find_near_miss_labels([], 8) == []
+    assert client.find_near_miss_labels(["EU"], 8) == []  # token below min length
+    assert calls == []  # neither issued a query
+    assert client.find_near_miss_labels(["wind"], 8) == []  # empty result
+    assert len(calls) == 1
+
+
+def test_execute_advisory_syntax_repair(monkeypatch):
+    client = OEPClient("token", get_config())
+    monkeypatch.setattr(oep_module, "validate_syntax", lambda q: "boom" if "BAD" in q else None)
+    monkeypatch.setattr(client, "run_sparql", lambda q, strict=False: _label_bindings(["X"]))
+    seen = {}
+
+    def on_error(previous, error):
+        seen["err"] = error
+        return "GOOD QUERY"
+
+    result = client.execute("BAD QUERY", on_error=on_error)
+    assert seen["err"] == "boom"
+    assert result.repaired is True
+    assert result.sparql_used == "GOOD QUERY"
+
+
+def test_execute_syntax_repaired_query_runs_even_with_zero_rounds(monkeypatch):
+    from dataclasses import replace
+
+    client = OEPClient("token", replace(get_config(), sparql_repair_rounds=0))
+    monkeypatch.setattr(oep_module, "validate_syntax", lambda q: "boom" if "BAD" in q else None)
+    monkeypatch.setattr(
+        client,
+        "run_sparql",
+        lambda q, strict=False: _label_bindings(["X"]) if "GOOD" in q else dict(_EMPTY_RESULT),
+    )
+    result = client.execute("BAD QUERY", on_error=lambda prev, err: "GOOD QUERY")
+    assert result.repaired is True
+    assert result.sparql_used == "GOOD QUERY"
+    assert not result.results_df.empty  # the repaired query was actually executed

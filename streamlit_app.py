@@ -126,14 +126,105 @@ def render_sparql_panel(full_query: str, turn_id: str, pipeline: RagPipeline) ->
             st.markdown(st.session_state[explanation_key])
 
 
+def _render_metadata_card(card: dict, url: str) -> None:
+    """Render the OEMetadata info card for one dataset."""
+    if not card:
+        st.info("No metadata available for this dataset.")
+        return
+    if card.get("description"):
+        st.markdown(card["description"])
+    bullets = []
+    if card.get("region"):
+        region = card["region"]
+        if card.get("resolution"):
+            region += f" ({card['resolution']})"
+        bullets.append(f"**Region:** {region}")
+    if card.get("temporal"):
+        bullets.append(f"**Time coverage:** {card['temporal']}")
+    lic = card.get("license") or {}
+    if lic.get("name"):
+        text = f"[{lic['name']}]({lic['path']})" if lic.get("path") else lic["name"]
+        if lic.get("attribution"):
+            text += f" — {lic['attribution']}"
+        bullets.append(f"**License:** {text}")
+    if card.get("badge"):
+        bullets.append(f"**Review badge:** {card['badge']}")
+    if card.get("n_fields"):
+        bullets.append(f"**Columns:** {card['n_fields']}")
+    if bullets:
+        st.markdown("\n".join(f"- {b}" for b in bullets))
+    sources = card.get("sources") or []
+    if sources:
+        rendered = " · ".join(
+            f"[{s['title']}]({s['path']})" if s.get("path") else s["title"] for s in sources
+        )
+        st.caption("Sources: " + rendered)
+    st.markdown(f"[↗ Open this dataset on OEP]({url})")
+
+
+def _render_data_preview(rows: pd.DataFrame, table: str, key: str) -> None:
+    """Render the actual dataset rows plus a quick chart and download."""
+    if rows is None or rows.empty:
+        st.info("No data rows available (the table may be empty or restricted).")
+        return
+    st.dataframe(rows, use_container_width=True, hide_index=True)
+    st.caption(f"Showing the first {len(rows)} rows of `{table}`.")
+    st.download_button(
+        "⬇️ Download preview (CSV)",
+        rows.to_csv(index=False).encode("utf-8"),
+        file_name=f"{table}.csv",
+        mime="text/csv",
+        key=f"dsdl_{key}",
+        use_container_width=True,
+    )
+    numeric_cols = [c for c in rows.columns if pd.api.types.is_numeric_dtype(rows[c])]
+    if numeric_cols:
+        chosen = st.selectbox("📈 Quick chart — numeric column", numeric_cols, key=f"dschart_{key}")
+        st.bar_chart(rows[chosen])
+
+
+def render_dataset_section(df: pd.DataFrame, turn_id: str, pipeline: RagPipeline) -> None:
+    """List OEP datasets referenced in a result; load each one's data on demand."""
+    references = pipeline.dataset_references(df)
+    if not references:
+        return
+    st.caption("📊 **Referenced OEP datasets** — open one to load its metadata and a data preview.")
+    for index, (url, table) in enumerate(references):
+        with st.expander(f"📂 {table}"):
+            state_key = f"ds_{turn_id}_{index}"
+            if st.button("Load metadata & data preview", key=f"dsload_{state_key}"):
+                with st.spinner(f"Loading {table} from OEP..."):
+                    st.session_state[state_key] = {
+                        "card": pipeline.dataset_metadata(table),
+                        "rows": pipeline.dataset_preview(table),
+                        "url": url,
+                    }
+            loaded = st.session_state.get(state_key)
+            if loaded:
+                _render_metadata_card(loaded["card"], loaded["url"])
+                _render_data_preview(loaded["rows"], table, state_key)
+
+
+def render_ontology_terms(df: pd.DataFrame, pipeline: RagPipeline) -> None:
+    """Render a glossary line linking OEO terms in a result to their definitions."""
+    terms = pipeline.ontology_links(df)
+    if not terms:
+        return
+    links = " · ".join(f"[{t['label']}]({t['url']})" for t in terms)
+    st.markdown(f"🧬 **Ontology terms:** {links}")
+
+
 def render_assistant_extras(turn: dict, pipeline: RagPipeline) -> None:
-    """Render the correction note, SPARQL panel and result table for a turn."""
+    """Render the correction note, SPARQL panel, result table and OEP extras."""
     if turn.get("corrected"):
         st.caption(_CORRECTION_NOTE)
     if turn.get("full_query"):
         render_sparql_panel(turn["full_query"], turn["turn_id"], pipeline)
-    if turn.get("results_df") is not None:
-        render_results_table(turn["results_df"], turn["turn_id"])
+    df = turn.get("results_df")
+    if df is not None:
+        render_results_table(df, turn["turn_id"])
+        render_dataset_section(df, turn["turn_id"], pipeline)
+        render_ontology_terms(df, pipeline)
 
 
 def render_assistant_turn(turn: dict, pipeline: RagPipeline) -> None:

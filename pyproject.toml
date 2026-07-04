@@ -18,6 +18,7 @@ dependencies = [
     "requests>=2.32",
     "tabulate>=0.9",   # required by pandas.DataFrame.to_markdown
     "openpyxl>=3.1",   # Excel export of result tables
+    "rdflib>=7.0",     # offline SPARQL syntax validation
 ]
 
 [project.optional-dependencies]
@@ -45,6 +46,10 @@ ignore = ["E501", "E741", "E402"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = [
+    # faiss-cpu imports a deprecated NumPy internal at load time; not our code.
+    "ignore:numpy.core._multiarray_umath is deprecated:DeprecationWarning",
+]
 
 [tool.mypy]
 files = ["oekg"]

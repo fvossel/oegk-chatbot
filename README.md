@@ -13,6 +13,7 @@ Ask natural-language questions about OEKG data and get answers backed by SPARQL 
 - **Interactive results** — answers come with a real, sortable table plus **CSV/Excel download** and clickable links to the underlying OEP resources.
 - **Inspectable SPARQL** — the generated query lives in a collapsible panel with copy-to-clipboard and an on-demand plain-language explanation.
 - **Saved questions** — re-run previously answered questions instantly from a shared, file-backed cache; add or curate entries manually.
+- **Live OEP data** — when a result references an OEP dataset, load (on demand) a preview of the **actual table rows** plus an OEMetadata card (units, time/region coverage, license & attribution, sources); OEO ontology terms link to their authoritative definitions.
 
 ---
 
@@ -103,14 +104,29 @@ All variables are optional except the two credentials. Defaults are shown.
 | `OEKG_MAX_USER_HISTORY` | `5` | User turns kept as conversation context. |
 | `OEKG_MAX_SUMMARY_CHARS` | `10000` | Max result size (chars) that is summarised. |
 | `OEKG_MAX_INPUT_CHARS` | `2000` | Max length of a user question. |
+| `OEKG_PROMPT_CACHE_KEY` | _(empty)_ | Optional OpenAI prompt-cache routing key. |
 | `OEKG_URI_VALIDATION` | `1` | Validate generated URIs against the vocabulary. |
+| `OEKG_NORMALISE_OUTPUT` | `1` | Strip stray markdown fences/labels from model output. |
+| `OEKG_SYNTAX_VALIDATION` | `1` | Local rdflib syntax pre-flight (advisory). |
+| `OEKG_SCHEMA_VALIDATION` | `1` | Flag predicate objects outside their declared range. |
+| `OEKG_ENTITY_GROUNDING` | `1` | Resolve entity mentions against real graph labels. |
+| `OEKG_GROUNDING_MAX_MENTIONS` | `6` | Max entity mentions grounded per question. |
+| `OEKG_GROUNDING_MIN_LEN` | `3` | Min length of a grounded mention. |
+| `OEKG_GROUNDING_RESULTS_PER_MENTION` | `5` | Max resolved labels per mention. |
+| `OEKG_NEAR_MISS` | `1` | Enrich empty-result retries with real near-miss labels. |
+| `OEKG_NEAR_MISS_LIMIT` | `8` | Max near-miss labels fetched. |
+| `OEKG_NEAR_MISS_MIN_TOKEN` | `4` | Min mention-token length for near-miss search. |
 | `OEKG_SPARQL_ENDPOINT` | OEP OEKG SPARQL URL | SPARQL endpoint. |
 | `OEKG_SPARQL_RETRIES` | `3` | Network retries per query. |
 | `OEKG_SPARQL_RETRY_DELAY` | `2` | Seconds between retries. |
 | `OEKG_SPARQL_TIMEOUT` | `30` | Per-request timeout (seconds). |
 | `OEKG_SPARQL_REPAIR_ROUNDS` | `2` | LLM self-correction rounds on endpoint errors. |
+| `OEKG_OEP_API_BASE` | OEP REST API base | Base URL for dataset preview/metadata. |
+| `OEKG_DATASET_PREVIEW_ROWS` | `50` | Rows fetched for an inline dataset preview. |
 | `OEKG_CACHE_ENABLED` | `1` | Enable the question→SPARQL cache. |
 | `OEKG_CACHE_PATH` | `query_cache.json` | Cache file location. |
+| `OEKG_SEMANTIC_CACHE` | `1` | Offer the closest cached paraphrase (with confirmation). |
+| `OEKG_SEMANTIC_CACHE_THRESHOLD` | `0.92` | Min cosine similarity for a semantic match. |
 | `OEKG_LOG_DIR` | `logs` | Directory for request/error logs. |
 | `OEKG_LOG_LEVEL` | `INFO` | Log level. |
 

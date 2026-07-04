@@ -34,6 +34,9 @@ class AppConfig:
     embedding_model: str = field(
         default_factory=lambda: _env("OEKG_EMBEDDING_MODEL", "text-embedding-3-large")
     )
+    # Optional OpenAI prompt-cache routing key (empty = unset; caching of the
+    # large static system prompt is automatic regardless).
+    prompt_cache_key: str = field(default_factory=lambda: _env("OEKG_PROMPT_CACHE_KEY", ""))
 
     # --- Credentials -----------------------------------------------------
     openai_api_key: str | None = field(default_factory=lambda: getenv("OPENAI_API_KEY"))
@@ -48,12 +51,35 @@ class AppConfig:
     summary_prompt_path: Path = ROOT_DIR / "summary_system_prompt.txt"
     logo_path: Path = ROOT_DIR / "logo.svg"
 
+    # --- OEP data REST API (dataset preview + metadata) -----------------
+    oep_api_base: str = field(
+        default_factory=lambda: _env("OEKG_OEP_API_BASE", "https://openenergyplatform.org/api/v0")
+    )
+    dataset_preview_rows: int = int(_env("OEKG_DATASET_PREVIEW_ROWS", "50"))
+
     # --- Retrieval / pipeline limits ------------------------------------
     retrieval_top_k: int = int(_env("OEKG_RETRIEVAL_TOP_K", "10"))
     max_user_history: int = int(_env("OEKG_MAX_USER_HISTORY", "5"))
     max_summary_input_chars: int = int(_env("OEKG_MAX_SUMMARY_CHARS", "10000"))
     max_input_chars: int = int(_env("OEKG_MAX_INPUT_CHARS", "2000"))
+
+    # --- SPARQL generation guards ---------------------------------------
     uri_validation_enabled: bool = _env("OEKG_URI_VALIDATION", "1") not in ("0", "false", "False")
+    # Strip stray markdown fences / labels from the model's raw output.
+    normalise_output_enabled: bool = _env("OEKG_NORMALISE_OUTPUT", "1") not in ("0", "false", "False")
+    # Parse the query locally (rdflib) before executing; advisory repair only.
+    syntax_validation_enabled: bool = _env("OEKG_SYNTAX_VALIDATION", "1") not in ("0", "false", "False")
+    # Flag predicate objects outside a relation's declared range.
+    schema_validation_enabled: bool = _env("OEKG_SCHEMA_VALIDATION", "1") not in ("0", "false", "False")
+    # Resolve entity mentions against real graph labels before generation.
+    entity_grounding_enabled: bool = _env("OEKG_ENTITY_GROUNDING", "1") not in ("0", "false", "False")
+    grounding_max_mentions: int = int(_env("OEKG_GROUNDING_MAX_MENTIONS", "6"))
+    grounding_min_mention_len: int = int(_env("OEKG_GROUNDING_MIN_LEN", "3"))
+    grounding_results_per_mention: int = int(_env("OEKG_GROUNDING_RESULTS_PER_MENTION", "5"))
+    # On empty results, fetch real near-miss labels to enrich the retry.
+    near_miss_enabled: bool = _env("OEKG_NEAR_MISS", "1") not in ("0", "false", "False")
+    near_miss_limit: int = int(_env("OEKG_NEAR_MISS_LIMIT", "8"))
+    near_miss_min_token_len: int = int(_env("OEKG_NEAR_MISS_MIN_TOKEN", "4"))
 
     # --- OEP SPARQL endpoint --------------------------------------------
     sparql_endpoint: str = field(

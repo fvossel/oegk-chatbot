@@ -18,6 +18,7 @@ from pandas import DataFrame
 
 from oekg.config import AppConfig, get_config
 from oekg.transforms import convert_to_df, get_scenarios
+from oekg.validation import validate_syntax
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +120,41 @@ class OEPClient:
     def build_full_query(sparql_query: str) -> str:
         """Prepend the standard PREFIX block to a generated query."""
         return _QUERY_PREFIXES + sparql_query
+
+    def find_near_miss_labels(self, mentions: list[str], limit: int) -> list[str]:
+        """Fetch real labels whose text contains a token of any mention.
+
+        Used to enrich the empty-result retry with labels that actually exist in
+        the graph. One tolerant query; returns ``[]`` on no tokens / no results.
+        """
+        if not mentions or limit <= 0:
+            return []
+        min_len = self._config.near_miss_min_token_len
+        tokens: list[str] = []
+        for mention in mentions:
+            qualifying = [t.strip().lower() for t in mention.split() if len(t.strip()) >= min_len]
+            if qualifying:
+                tokens.extend(qualifying)
+            else:
+                whole = mention.strip().lower()
+                if len(whole) >= min_len:
+                    tokens.append(whole)
+        tokens = list(dict.fromkeys(tokens))
+        if not tokens:
+            return []
+
+        escaped = [t.replace("\\", "\\\\").replace('"', '\\"') for t in tokens]
+        filters = " || ".join(f'CONTAINS(LCASE(STR(?label)), "{t}")' for t in escaped)
+        query = (
+            "SELECT DISTINCT ?label WHERE { ?s rdfs:label ?label . FILTER("
+            + filters
+            + f") }} LIMIT {int(limit)}"
+        )
+        df = convert_to_df(self.run_sparql(self.build_full_query(query)))
+        if df.empty or "label" not in df.columns:
+            return []
+        labels = [v for v in df["label"].tolist() if isinstance(v, str) and v.strip()]
+        return list(dict.fromkeys(labels))
 
     # -- URI resolution ---------------------------------------------------
     def resolve_uri(self, uri: str) -> str:
@@ -314,6 +350,20 @@ WHERE {
         raw: dict[str, Any] = dict(_EMPTY_RESULT)
         for attempt in range(rounds + 1):
             full_query = self.build_full_query(sparql_used)
+            # Advisory local syntax pre-flight (first attempt only): repair a
+            # malformed query inline (no wasted endpoint round-trip) and execute
+            # the repaired query in this same iteration. Never blocks execution
+            # -- rdflib may reject queries the OEP would accept.
+            if attempt == 0 and on_error is not None and self._config.syntax_validation_enabled:
+                syntax_error = validate_syntax(full_query)
+                if syntax_error is not None:
+                    logger.info("local SPARQL syntax check flagged: %s", syntax_error)
+                    try:
+                        sparql_used = on_error(sparql_used, syntax_error)
+                        repaired = True
+                        full_query = self.build_full_query(sparql_used)
+                    except Exception:  # noqa: BLE001 - advisory; execute the original
+                        logger.exception("local syntax repair via on_error failed")
             try:
                 raw = self.run_sparql(full_query, strict=True)
                 break

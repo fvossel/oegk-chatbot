@@ -4,6 +4,11 @@ Wraps the LLM tasks of the pipeline -- generating a SPARQL query from a
 natural-language request, summarising the query results (optionally streamed),
 and explaining a query in plain language -- behind a single client so the model
 names and prompt assembly live in one place.
+
+The large static system prompt is always the leading content of every request,
+so OpenAI's automatic prompt caching applies to it; an optional
+``prompt_cache_key`` (passed via ``extra_body`` for SDK-version safety) improves
+cache routing.
 """
 
 from __future__ import annotations
@@ -62,7 +67,18 @@ class LLMClient:
         self._resources = resources
         self._config = config or get_config()
 
-    def generate_sparql(self, query: str, documents: list) -> str:
+    def _extra_body(self) -> dict[str, Any] | None:
+        """Pass a prompt-cache routing key when configured (SDK-version safe)."""
+        key = self._config.prompt_cache_key
+        return {"prompt_cache_key": key} if key else None
+
+    @staticmethod
+    def cached_tokens(response: Any) -> int:
+        """Safely read the number of cached input tokens from a response."""
+        details = getattr(getattr(response, "usage", None), "input_tokens_details", None)
+        return int(getattr(details, "cached_tokens", 0) or 0)
+
+    def generate_sparql(self, query: str, documents: list, grounding: str | None = None) -> str:
         """Generate a SPARQL query from an NL request and context documents."""
         user_prompt = (
             "Request: "
@@ -70,13 +86,17 @@ class LLMClient:
             + "\n\nContext with classes and their allowed relations and properties:\n"
             + json.dumps(_compact_documents(documents), ensure_ascii=False, indent=2)
         )
+        if grounding:
+            user_prompt += "\n\n" + grounding
         response = self._client.responses.create(
             model=self._config.sparql_model,
             input=[
                 {"role": "developer", "content": self._resources.sparql_system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
+            extra_body=self._extra_body(),
         )
+        logger.debug("sparql generation | cached_tokens=%s", self.cached_tokens(response))
         return response.output_text
 
     def _summary_input(self, sparql_results: str, nl_query: str) -> list[Any]:
@@ -97,6 +117,7 @@ class LLMClient:
             response = self._client.responses.create(
                 model=self._config.summary_model,
                 input=self._summary_input(sparql_results, nl_query),
+                extra_body=self._extra_body(),
             )
             return response.output_text
         except Exception:  # noqa: BLE001 - summary is optional
@@ -109,6 +130,7 @@ class LLMClient:
             stream = self._client.responses.create(
                 model=self._config.summary_model,
                 input=self._summary_input(sparql_results, nl_query),
+                extra_body=self._extra_body(),
                 stream=True,
             )
             for event in stream:
@@ -126,6 +148,7 @@ class LLMClient:
                     {"role": "developer", "content": _EXPLAIN_PROMPT},
                     {"role": "user", "content": query},
                 ],
+                extra_body=self._extra_body(),
             )
             return response.output_text
         except Exception:  # noqa: BLE001 - explanation is optional
