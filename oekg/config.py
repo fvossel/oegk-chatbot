@@ -51,6 +51,16 @@ class AppConfig:
     summary_prompt_path: Path = ROOT_DIR / "summary_system_prompt.txt"
     logo_path: Path = ROOT_DIR / "logo.svg"
 
+    # --- Privacy / consent gate ------------------------------------------
+    # The policy shown before the chatbot may be used. A deployment can point
+    # this at its own document; consent is re-requested whenever it changes.
+    privacy_policy_path: Path = Path(
+        _env("OEKG_PRIVACY_POLICY_PATH", str(ROOT_DIR / "PRIVACY.md"))
+    )
+    # Only disable this where consent is already obtained elsewhere (e.g. an
+    # embedding portal) -- the chatbot sends user input to a third country.
+    require_consent: bool = _env("OEKG_REQUIRE_CONSENT", "1") not in ("0", "false", "False")
+
     # --- OEP data REST API (dataset preview + metadata) -----------------
     oep_api_base: str = field(
         default_factory=lambda: _env("OEKG_OEP_API_BASE", "https://openenergyplatform.org/api/v0")

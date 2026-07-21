@@ -31,6 +31,7 @@ The Streamlit entry point [`streamlit_app.py`](streamlit_app.py) only wires thin
 | `oekg/oep.py` | OEP SPARQL execution, URI resolution and scenario bundling. |
 | `oekg/pipeline.py` | End-to-end orchestration (`RagPipeline`). |
 | `oekg/cache.py` | Persistent question → SPARQL cache. |
+| `oekg/privacy.py` | Privacy policy loading and consent bookkeeping. |
 | `oekg/logging_setup.py` | Rotating request/error logs. |
 
 ---
@@ -127,6 +128,8 @@ All variables are optional except the two credentials. Defaults are shown.
 | `OEKG_CACHE_PATH` | `query_cache.json` | Cache file location. |
 | `OEKG_SEMANTIC_CACHE` | `1` | Offer the closest cached paraphrase (with confirmation). |
 | `OEKG_SEMANTIC_CACHE_THRESHOLD` | `0.92` | Min cosine similarity for a semantic match. |
+| `OEKG_PRIVACY_POLICY_PATH` | `PRIVACY.md` | Policy shown in the consent gate. |
+| `OEKG_REQUIRE_CONSENT` | `1` | Require explicit consent before the chatbot can be used. |
 | `OEKG_LOG_DIR` | `logs` | Directory for request/error logs. |
 | `OEKG_LOG_LEVEL` | `INFO` | Log level. |
 
@@ -148,8 +151,28 @@ fakes. CI runs lint + tests on every push (see `.github/workflows/ci.yml`).
 
 ## 🛡️ Privacy
 
+The app ships with its own privacy policy, [`PRIVACY.md`](PRIVACY.md), and
+**gates itself behind an explicit consent checkbox**: the policy is shown on
+first use and neither the language model, the shared question cache nor the
+saved-questions list is reachable until the user accepts it. Consent lives in
+the Streamlit session only (no cookie, no client-side storage) and can be
+withdrawn at any time from the sidebar.
+
+Consent is bound to a fingerprint of the policy text, so **editing `PRIVACY.md`
+automatically re-prompts** everyone for renewed consent.
+
+In short:
+
 - Your questions, relevant context, and parts of the knowledge graph are sent to the OpenAI API (US/EU servers).
+- `logs/requests.log` records the **text of every question** (no IP address or user identifier).
+- `query_cache.json` is **shared between all users**; entries are only written on an explicit user action.
 - **Do not submit personal, confidential, or sensitive information.**
+
+> **Operators:** `PRIVACY.md` names the controller of the reference deployment
+> and describes *this* code's behaviour. If you run a modified or independently
+> hosted instance, review it, adjust the controller and retention details, and
+> point `OEKG_PRIVACY_POLICY_PATH` at your version. It is a starting point, not
+> legal advice.
 
 ---
 

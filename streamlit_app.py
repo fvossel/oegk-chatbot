@@ -18,8 +18,15 @@ import streamlit as st
 
 from oekg.cache import QueryCache
 from oekg.config import get_config
-from oekg.logging_setup import configure_logging
+from oekg.logging_setup import configure_logging, get_request_logger
 from oekg.pipeline import RagPipeline
+from oekg.privacy import (
+    CONSENT_STATE_KEY,
+    build_consent_record,
+    consent_is_current,
+    load_policy,
+    policy_version,
+)
 from oekg.resources import load_resources
 
 # ==============================
@@ -29,6 +36,9 @@ from oekg.resources import load_resources
 CONFIG = get_config()
 configure_logging(CONFIG)
 logger = logging.getLogger(__name__)
+# Consent events go to the request log so the controller can demonstrate that
+# the gate was in effect (Art. 7 (1) GDPR). They carry no user identifier.
+consent_logger = get_request_logger()
 
 APP_TITLE = "Ask OEKG"
 _XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -285,6 +295,77 @@ def handle_question(
     trim_history()
 
 
+def render_consent_gate() -> bool:
+    """Show the privacy policy and block the app until the user accepts it.
+
+    Returns ``True`` when the session may proceed. Consent lives in the session
+    only: nothing is stored on the client, and closing the tab revokes it.
+    """
+    if not CONFIG.require_consent:
+        return True
+
+    policy = load_policy(CONFIG.privacy_policy_path)
+    if not policy:
+        st.error(
+            f"The privacy policy (`{CONFIG.privacy_policy_path}`) could not be read, so "
+            "consent cannot be obtained and the chatbot stays disabled. Restore the file "
+            "or point `OEKG_PRIVACY_POLICY_PATH` at it."
+        )
+        logger.error("privacy policy unreadable | path=%s", CONFIG.privacy_policy_path)
+        return False
+
+    version = policy_version(policy)
+    if consent_is_current(st.session_state.get(CONSENT_STATE_KEY), version):
+        return True
+
+    st.subheader("Before you start")
+    st.markdown(
+        "This chatbot sends what you type to an external language-model API "
+        "(OpenAI, processing in the USA). Please read the privacy policy below and "
+        "confirm that you agree — the chatbot stays disabled until you do.\n\n"
+        "**Do not enter personal, confidential or sensitive information.**"
+    )
+    with st.expander("📄 Privacy Policy", expanded=True):
+        st.markdown(policy)
+    st.download_button(
+        "⬇️ Download the privacy policy",
+        policy.encode("utf-8"),
+        file_name="privacy_policy.md",
+        mime="text/markdown",
+    )
+    accepted = st.checkbox(
+        "I have read the privacy policy and consent to my input being processed as described in it.",
+        key="privacy_consent_checkbox",
+    )
+    if st.button("Continue to the chatbot", disabled=not accepted, type="primary"):
+        st.session_state[CONSENT_STATE_KEY] = build_consent_record(version)
+        consent_logger.info("consent | action=given | policy_version=%s", version)
+        st.rerun()
+    return False
+
+
+def render_privacy_sidebar() -> None:
+    """Let the user re-read the policy and withdraw consent at any time."""
+    st.header("🔐 Privacy")
+    policy = load_policy(CONFIG.privacy_policy_path)
+    if policy:
+        with st.expander("📄 Privacy Policy"):
+            st.markdown(policy)
+    if not CONFIG.require_consent:
+        return
+    st.caption("Withdrawal takes effect immediately and clears this conversation.")
+    if st.button("Withdraw consent", use_container_width=True):
+        record = st.session_state.get(CONSENT_STATE_KEY) or {}
+        st.session_state.pop(CONSENT_STATE_KEY, None)
+        st.session_state.chat_history = []
+        st.session_state.pop("semantic_pending", None)
+        st.session_state.pop("last_cacheable", None)
+        consent_logger.info(
+            "consent | action=withdrawn | policy_version=%s", record.get("version")
+        )
+        st.rerun()
+
+
 def save_to_cache(question: str, sparql: str, query_cache: QueryCache, pipeline: RagPipeline) -> None:
     """Store a question/query pair plus its embedding (for semantic matching)."""
     try:
@@ -304,7 +385,8 @@ st.set_page_config(page_title=APP_TITLE, page_icon=str(CONFIG.logo_path))
 st.warning(
     "⚠️ **Privacy Notice:**\n\n"
     "- Your questions, selected context, and graph snippets will be sent to an external Language Model API (OpenAI) "
-    "(potentially processed in the USA). Do not submit personal, confidential, or sensitive information."
+    "(potentially processed in the USA). Do not submit personal, confidential, or sensitive information.\n"
+    "- The full privacy policy is shown before you start and stays available in the sidebar."
 )
 
 with open(CONFIG.logo_path, "rt") as f:
@@ -371,6 +453,11 @@ if not CONFIG.openai_api_key or not CONFIG.oep_token:
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
+# Nothing below this line may run before the user has accepted the policy --
+# the gate sits in front of the model, the cache and the saved questions alike.
+if not render_consent_gate():
+    st.stop()
+
 pipeline = get_pipeline()
 query_cache = get_query_cache()
 
@@ -379,7 +466,7 @@ with st.sidebar:
     st.header("💾 Saved questions")
     st.caption(
         "Pick a previously answered question to re-run it instantly using its "
-        "cached SPARQL query."
+        "cached SPARQL query. This list is shared by everyone using this instance."
     )
     cached_entries = query_cache.list_questions()
     if cached_entries:
@@ -415,6 +502,9 @@ with st.sidebar:
                 st.rerun()
             else:
                 st.warning("Please provide both a question and a SPARQL query.")
+
+    st.divider()
+    render_privacy_sidebar()
 
 # Show chat history (user & assistant), in order.
 for past_turn in st.session_state.chat_history:
@@ -474,6 +564,10 @@ try:
     # Explicit caching of the most recent query-backed turn.
     last = st.session_state.get("last_cacheable")
     if last:
+        st.caption(
+            "Saving stores your question and its query in the **shared** cache, where "
+            "everyone using this instance can see and re-run it."
+        )
         if st.button(f"💾 Cache this question + query: “{last['question']}”"):
             save_to_cache(last["question"], last["sparql"], query_cache, pipeline)
             logger.info("cached chat turn | question=%r", last["question"])
