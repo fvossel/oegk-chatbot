@@ -1,6 +1,6 @@
 altair==5.5.0
 annotated-types==0.7.0
-anyio==4.9.0
+anyio==4.14.2
 attrs==25.3.0
 blinker==1.9.0
 cachetools==6.1.0
@@ -11,7 +11,7 @@ colorama==0.4.6
 distro==1.9.0
 faiss-cpu==1.11.0.post1
 gitdb==4.0.12
-GitPython==3.1.50
+GitPython==3.1.59
 h11==0.16.0
 httpcore==1.0.9
 httpx==0.28.1
@@ -27,8 +27,8 @@ openai==1.97.1
 openpyxl==3.1.5
 packaging==25.0
 pandas==2.3.1
-pillow==12.2.0
-protobuf==6.31.1
+pillow==12.3.0
+protobuf==6.33.5
 pyarrow==24.0.0
 pydantic==2.11.7
 pydantic_core==2.33.2
@@ -48,7 +48,7 @@ streamlit==1.54.0
 tabulate==0.9.0
 tenacity==9.1.2
 toml==0.10.2
-tornado==6.5.7
+tornado==6.5.8
 tqdm==4.67.1
 typing-inspection==0.4.1
 typing_extensions==4.14.1
