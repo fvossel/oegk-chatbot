@@ -59,7 +59,8 @@ class FakeLLM:
     def summarise(self, sparql_results, nl_query):
         return "A short summary."
 
-    def explain_sparql(self, query):
+    def explain_sparql(self, query, term_labels=None):
+        self.explained = (query, term_labels)
         return "explanation"
 
 
@@ -99,7 +100,8 @@ def _build(cache, llm, oep, config=None, resources=None):
         resources or _resources(),
         cache,
         config or get_config(),
-        client=object(),
+        embedding_client=object(),
+        chat_client=object(),
         retriever=FakeRetriever(),
         llm=llm,
         oep=oep,
@@ -298,3 +300,46 @@ def test_ontology_links_from_results():
     links = pipeline.ontology_links(df)
     assert links[0]["label"] == "author"
     assert links[0]["url"].endswith("/OEO_00000064/")
+
+
+# -- chat client construction -------------------------------------------------
+
+
+def test_missing_llm_api_key_never_falls_back_to_the_openai_key(monkeypatch):
+    import pytest
+
+    # The SDK would pick this up for api_key=None and send it to KiWi.
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-secret")
+    cfg = replace(get_config(), llm_api_key=None)
+    with pytest.raises(ValueError, match="LLM_API_KEY"):
+        RagPipeline(_resources(), FakeCache(), cfg, embedding_client=object())
+
+
+def test_chat_client_targets_the_configured_endpoint_with_a_retry_cap():
+    cfg = replace(
+        get_config(),
+        llm_api_key="kiwi-test-key",
+        llm_base_url="https://llm.example.org/v1",
+        llm_timeout=42.0,
+        llm_max_retries=1,
+    )
+    pipeline = RagPipeline(
+        _resources(), FakeCache(), cfg,
+        embedding_client=object(), retriever=FakeRetriever(), llm=FakeLLM(), oep=FakeOEP(pd.DataFrame()),
+    )
+    client = pipeline._chat_client
+    assert client.api_key == "kiwi-test-key"
+    assert str(client.base_url).rstrip("/") == "https://llm.example.org/v1"
+    assert client.max_retries == 1
+    assert client.timeout == 42.0
+
+
+def test_explain_sparql_passes_labels_of_the_terms_used_in_the_query():
+    docs = {
+        "oeo:OEO_00020227": {"class": "oeo:OEO_00020227", "label": "scenario bundle"},
+        "oeo:OEO_99999999": {"class": "oeo:OEO_99999999", "label": "unused class"},
+    }
+    llm = FakeLLM()
+    pipeline = _build(FakeCache(), llm, FakeOEP(pd.DataFrame()), resources=_resources(docs, list(docs)))
+    assert pipeline.explain_sparql("SELECT (COUNT(?s) AS ?n) { ?s a oeo:OEO_00020227 . }") == "explanation"
+    assert llm.explained[1] == {"oeo:OEO_00020227": "scenario bundle"}

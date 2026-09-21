@@ -32,11 +32,13 @@ from oekg.resources import Resources
 from oekg.retrieval import Retriever
 from oekg.validation import (
     build_known_vocabulary,
+    build_label_index,
     build_relation_schema,
     extract_literal_mentions,
     find_range_violations,
     find_unknown_uris,
     normalise_sparql,
+    query_term_labels,
     summarise_predicate_schema,
 )
 
@@ -86,7 +88,8 @@ class RagPipeline:
         cache: QueryCache,
         config: AppConfig | None = None,
         *,
-        client: OpenAI | None = None,
+        embedding_client: OpenAI | None = None,
+        chat_client: OpenAI | None = None,
         retriever: Retriever | None = None,
         llm: LLMClient | None = None,
         oep: OEPClient | None = None,
@@ -97,13 +100,26 @@ class RagPipeline:
         self._cache = cache
         self._logger = get_request_logger()
         self._known_vocab: set[str] | None = None
+        self._label_index: dict[str, str] | None = None
         self._relation_schema: dict[str, dict[str, Any]] | None = None
 
         # Collaborators default to real implementations but can be injected
-        # (e.g. for testing). The OpenAI client is reused across requests.
-        self._client = client or OpenAI(api_key=self._config.openai_api_key)
-        self._retriever = retriever or Retriever(self._client, resources, self._config)
-        self._llm = llm or LLMClient(self._client, resources, self._config)
+        # (e.g. for testing). Both clients are reused across requests. They are
+        # separate because the two APIs live with different providers: chat on
+        # the configured endpoint (KiWi by default), embeddings on OpenAI.
+        if chat_client is None and not self._config.llm_api_key:
+            # With api_key=None the SDK silently falls back to OPENAI_API_KEY and
+            # would send that secret to the (non-OpenAI) chat endpoint.
+            raise ValueError("LLM_API_KEY is not set; refusing to fall back to OPENAI_API_KEY")
+        self._embedding_client = embedding_client or OpenAI(api_key=self._config.openai_api_key)
+        self._chat_client = chat_client or OpenAI(
+            api_key=self._config.llm_api_key,
+            base_url=self._config.llm_base_url,
+            timeout=self._config.llm_timeout,
+            max_retries=self._config.llm_max_retries,
+        )
+        self._retriever = retriever or Retriever(self._embedding_client, resources, self._config)
+        self._llm = llm or LLMClient(self._chat_client, resources, self._config)
         self._oep = oep or OEPClient(self._config.oep_token, self._config)
         self._data = data or OEPDataClient(self._config.oep_token, self._config)
 
@@ -283,11 +299,15 @@ class RagPipeline:
     # -- public API -------------------------------------------------------
     def explain_sparql(self, query: str) -> str:
         """Return a plain-language explanation of a SPARQL query (best effort)."""
-        return self._llm.explain_sparql(query)
+        if self._label_index is None:
+            self._label_index = build_label_index(self._resources)
+        return self._llm.explain_sparql(
+            query, term_labels=query_term_labels(query, self._label_index)
+        )
 
     def embed(self, text: str) -> list[float]:
         """Embed a piece of text with the configured embedding model."""
-        response = self._client.embeddings.create(
+        response = self._embedding_client.embeddings.create(
             model=self._config.embedding_model, input=text
         )
         return list(response.data[0].embedding)
@@ -477,11 +497,12 @@ class RagPipeline:
         )
 
     def close(self) -> None:
-        """Release the underlying OpenAI client."""
-        try:
-            self._client.close()
-        except Exception:  # noqa: BLE001 - closing must never raise
-            pass
+        """Release the underlying API clients."""
+        for client in (self._embedding_client, self._chat_client):
+            try:
+                client.close()
+            except Exception:  # noqa: BLE001 - closing must never raise
+                pass
 
     # -- logging ----------------------------------------------------------
     def _finish(self, result: PipelineResult, question: str) -> PipelineResult:

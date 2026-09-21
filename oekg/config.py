@@ -28,9 +28,30 @@ def _env(name: str, default: str) -> str:
 class AppConfig:
     """Immutable, process-wide configuration."""
 
-    # --- OpenAI models ---------------------------------------------------
-    sparql_model: str = field(default_factory=lambda: _env("OEKG_SPARQL_MODEL", "gpt-5.4-mini"))
-    summary_model: str = field(default_factory=lambda: _env("OEKG_SUMMARY_MODEL", "gpt-5.4-nano"))
+    # --- Chat model (any OpenAI-compatible Chat Completions endpoint) ------
+    # Defaults to KiWi, Osnabrück University's LibreChat agents API, where the
+    # "model" is an agent id. To use OpenAI instead, set the base URL to
+    # https://api.openai.com/v1 and the models to e.g. gpt-5.4-mini.
+    llm_base_url: str = field(
+        default_factory=lambda: _env(
+            "OEKG_LLM_BASE_URL", "https://kiwi-secure.uni-osnabrueck.de/api/agents/v1"
+        )
+    )
+    sparql_model: str = field(
+        default_factory=lambda: _env("OEKG_SPARQL_MODEL", "agent_7qE8YPFNPQ9KQQInK9FNc")
+    )
+    summary_model: str = field(
+        default_factory=lambda: _env("OEKG_SUMMARY_MODEL", "agent_7qE8YPFNPQ9KQQInK9FNc")
+    )
+    # Per-attempt timeout; generation on a shared, self-hosted model can queue.
+    llm_timeout: float = float(_env("OEKG_LLM_TIMEOUT", "120"))
+    # Retries after a timeout or a 429/5xx. The SDK default (2) would let one
+    # stalled request block the UI for three full timeouts.
+    llm_max_retries: int = int(_env("OEKG_LLM_MAX_RETRIES", "1"))
+
+    # --- Embedding model (OpenAI) ---------------------------------------
+    # Stays on OpenAI: the FAISS index was built with it, and KiWi offers no
+    # embeddings endpoint.
     embedding_model: str = field(
         default_factory=lambda: _env("OEKG_EMBEDDING_MODEL", "text-embedding-3-large")
     )
@@ -39,6 +60,9 @@ class AppConfig:
     prompt_cache_key: str = field(default_factory=lambda: _env("OEKG_PROMPT_CACHE_KEY", ""))
 
     # --- Credentials -----------------------------------------------------
+    # LLM_API_KEY authenticates the chat endpoint above; OPENAI_API_KEY is only
+    # used for embeddings.
+    llm_api_key: str | None = field(default_factory=lambda: getenv("LLM_API_KEY"))
     openai_api_key: str | None = field(default_factory=lambda: getenv("OPENAI_API_KEY"))
     oep_token: str | None = field(default_factory=lambda: getenv("OEP_TOKEN"))
 

@@ -1,6 +1,6 @@
 # Privacy Policy — "Ask OEKG" Chatbot
 
-_Last updated: 2026-07-21_
+_Last updated: 2026-09-21_
 
 This policy explains how the **Ask OEKG** chatbot processes personal data. It
 covers the chatbot application itself. For the Open Energy Platform website,
@@ -30,8 +30,11 @@ institution, their contact details can be obtained via the address above.
 **Data:** the free text you type into the chat, plus the last few turns of the
 current conversation used as context.
 
-**Purpose:** to translate your question into a SPARQL query, execute it against
-the Open Energy Knowledge Graph, and summarise the result.
+**Purpose:** to translate your question into a SPARQL query with a language
+model, execute it against the Open Energy Knowledge Graph, and summarise the
+result. The text of your current question is additionally converted into a
+numeric vector ("embedding") to find the relevant parts of the ontology. Which
+of this data goes to which service is set out in section 3.
 
 **Legal basis:** your consent, Art. 6 (1) (a) GDPR. You give this consent via
 the checkbox shown before the chatbot becomes usable, and you can withdraw it at
@@ -68,10 +71,11 @@ serves the controller's obligation to demonstrate that consent was obtained
 
 **Data:** the text of a question, the SPARQL query generated for it, the time it
 was created and last used, a usage counter, and a numeric embedding
-(vector representation) of the question.
+(vector representation) of the question, computed as described in section 3.2.
 
-**Purpose:** to let any user re-run a previously answered question instantly
-without another call to the language model.
+**Purpose:** to let any user re-run a previously answered question instantly,
+without the language model having to generate a new SPARQL query. The result is
+still summarised by the language model as described in section 3.1.
 
 **Important:** this cache is **shared between all users** of this instance. Its
 entries are listed in the "Saved questions" sidebar and are therefore visible to
@@ -104,15 +108,34 @@ cookie of the web framework is used, which is deleted when your session ends.
 
 ## 3. Recipients and transfers to third countries
 
-### 3.1 OpenAI (language model and embeddings)
+### 3.1 KiWi, Osnabrück University (language model)
 
 To generate a SPARQL query, to summarise a result and to explain a query, your
-question, the relevant retrieved ontology excerpts and — where applicable — the
-retrieved result rows are transmitted to the API of
+question, the last few turns of the current conversation, the relevant retrieved
+ontology excerpts and — where applicable — the retrieved result rows are
+transmitted to **KiWi**, the AI service operated by
+
+**Universität Osnabrück**, Neuer Graben 29 / Schloss, 49074 Osnabrück, Germany.
+
+The language model behind KiWi (Qwen 3.5, 122B parameters, an openly available
+model) runs on Osnabrück University's own infrastructure. Your input is
+therefore processed **within Germany** and is not passed on to a commercial
+model provider. KiWi does **not store** the requests it receives from the
+chatbot; they are processed solely to generate the response.
+
+### 3.2 OpenAI (embeddings only)
+
+To find the parts of the ontology that are relevant to your question, **the text
+of your current question** — and only that — is converted into an embedding by
+the API of
 
 **OpenAI Ireland Ltd.**, 1st Floor, The Liffey Trust Centre, 117–126 Sheriff
 Street Upper, Dublin 1, D01 YC43, Ireland — with onward processing by
 **OpenAI, L.L.C.**, United States.
+
+The same happens when a new question is compared against the shared question
+cache (section 2.2) and when a question is saved to it. OpenAI receives neither
+the earlier turns of your conversation nor any query results or summaries.
 
 This constitutes a **transfer to a third country (USA)**. OpenAI relies on the
 EU Standard Contractual Clauses and, where applicable, the EU–US Data Privacy
@@ -125,15 +148,19 @@ Because this transfer is unavoidable for the chatbot to function, and because
 its risk cannot be excluded entirely, the chatbot is only made available after
 your explicit consent (Art. 6 (1) (a), Art. 49 (1) (a) GDPR).
 
-### 3.2 Open Energy Platform (knowledge graph and datasets)
+### 3.3 Open Energy Platform (knowledge graph and datasets)
 
-The generated SPARQL query, and any subsequent request for dataset rows or
-metadata, is sent to the public API of the Open Energy Platform
-(`openenergyplatform.org`). These requests are authenticated with the
-**application's own service token** — your identity is not transmitted, and the
-platform receives only the query itself, not who asked it.
+Before the language model is called, names and terms taken **verbatim from
+your question** (quoted phrases and capitalised words) are sent to the SPARQL
+endpoint of the Open Energy Platform (`openenergyplatform.org`) to look them up
+in the knowledge graph; if a query later returns no results, similar entries are
+looked up once more in the same way. The generated SPARQL query — which may also
+contain words from your question — is then executed there, as are any later
+requests for dataset rows or metadata. All of these requests are authenticated
+with the **application's own service token** — your identity is not transmitted,
+and the platform receives only the queries themselves, not who asked them.
 
-### 3.3 No other recipients
+### 3.4 No other recipients
 
 No data is sold, shared for advertising purposes, or passed to any other third
 party. No web analytics, tracking or advertising services are used.

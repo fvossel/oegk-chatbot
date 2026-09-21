@@ -114,6 +114,26 @@ def build_known_vocabulary(resources: Any) -> set[str]:
     return known
 
 
+def build_label_index(resources: Any) -> dict[str, str]:
+    """Map every vocabulary CURIE with a known label to that label."""
+    labels: dict[str, str] = {}
+    for doc_id, doc in resources.documents_dict.items():
+        if not isinstance(doc, dict):
+            continue
+        for key in ("domain", "range"):
+            for entry in doc.get(key, []) or []:
+                if isinstance(entry, dict) and entry.get("uri") and entry.get("label"):
+                    labels.setdefault(entry["uri"], entry["label"])
+        if doc.get("label"):
+            labels[doc_id] = doc["label"]
+    return labels
+
+
+def query_term_labels(query: str, labels: dict[str, str]) -> dict[str, str]:
+    """Return ``{curie: label}`` for each labelled vocabulary term used in ``query``."""
+    return {term: labels[term] for term in dict.fromkeys(_CURIE_RE.findall(query)) if term in labels}
+
+
 def find_unknown_uris(
     query: str,
     known: Iterable[str],

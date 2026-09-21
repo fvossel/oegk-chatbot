@@ -320,9 +320,10 @@ def render_consent_gate() -> bool:
 
     st.subheader("Before you start")
     st.markdown(
-        "This chatbot sends what you type to an external language-model API "
-        "(OpenAI, processing in the USA). Please read the privacy policy below and "
-        "confirm that you agree — the chatbot stays disabled until you do.\n\n"
+        "This chatbot sends your questions to the KiWi language model of Osnabrück "
+        "University, and the text of each question to OpenAI (processing in the USA) "
+        "for semantic search. Please read the privacy policy below and confirm that "
+        "you agree — the chatbot stays disabled until you do.\n\n"
         "**Do not enter personal, confidential or sensitive information.**"
     )
     with st.expander("📄 Privacy Policy", expanded=True):
@@ -384,8 +385,9 @@ st.set_page_config(page_title=APP_TITLE, page_icon=str(CONFIG.logo_path))
 
 st.warning(
     "⚠️ **Privacy Notice:**\n\n"
-    "- Your questions, selected context, and graph snippets will be sent to an external Language Model API (OpenAI) "
-    "(potentially processed in the USA). Do not submit personal, confidential, or sensitive information.\n"
+    "- Your questions, selected context, and graph snippets are sent to the KiWi language model of "
+    "Osnabrück University; the text of each question is also sent to OpenAI (processed in the USA) "
+    "for semantic search. Do not submit personal, confidential, or sensitive information.\n"
     "- The full privacy policy is shown before you start and stays available in the sidebar."
 )
 
@@ -443,10 +445,19 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-if not CONFIG.openai_api_key or not CONFIG.oep_token:
+_missing = [
+    name
+    for name, value in (
+        ("LLM_API_KEY", CONFIG.llm_api_key),
+        ("OPENAI_API_KEY", CONFIG.openai_api_key),
+        ("OEP_TOKEN", CONFIG.oep_token),
+    )
+    if not value
+]
+if _missing:
     st.error(
-        "Missing credentials: set `OPENAI_API_KEY` and `OEP_TOKEN` in your `.env` "
-        "(see `.env.example`) and restart the app."
+        "Missing credentials: set " + ", ".join(f"`{n}`" for n in _missing) + " in your "
+        "`.env` (see `.env.example`) and restart the app."
     )
     st.stop()
 

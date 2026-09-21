@@ -1,6 +1,6 @@
 # OEKG-Chatbot
 
-A GPT-powered chatbot for exploring and querying the [Open Energy Knowledge Graph (OEKG)](https://openenergyplatform.org/) from the Open Energy Platform (OEP).
+An LLM-powered chatbot for exploring and querying the [Open Energy Knowledge Graph (OEKG)](https://openenergyplatform.org/) from the Open Energy Platform (OEP).
 
 Ask natural-language questions about OEKG data and get answers backed by SPARQL queries that are generated, validated, executed and summarised for you — with the underlying query and an interactive, downloadable result table always one click away.
 
@@ -26,7 +26,7 @@ The Streamlit entry point [`streamlit_app.py`](streamlit_app.py) only wires thin
 | `oekg/config.py` | Central, env-overridable configuration (`AppConfig`). |
 | `oekg/resources.py` | Loads the FAISS index, ontology docs and system prompts. |
 | `oekg/retrieval.py` | Embeds a query and returns the top-k ontology documents. |
-| `oekg/llm.py` | OpenAI-backed SPARQL generation, summarisation and explanation. |
+| `oekg/llm.py` | SPARQL generation, summarisation and explanation via any OpenAI-compatible Chat Completions endpoint (KiWi by default). |
 | `oekg/validation.py` | Offline check of generated URIs against the OEKG vocabulary. |
 | `oekg/oep.py` | OEP SPARQL execution, URI resolution and scenario bundling. |
 | `oekg/pipeline.py` | End-to-end orchestration (`RagPipeline`). |
@@ -63,8 +63,22 @@ pip install -e ".[dev]"
 Copy [`.env.example`](.env.example) to `.env` and fill in your keys (`.env` is gitignored):
 
 ```dotenv
+LLM_API_KEY="YOUR_KIWI_API_KEY"
 OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
 OEP_TOKEN="YOUR_OEP_API_TOKEN"
+```
+
+The chat model runs on **KiWi**, Osnabrück University's LibreChat agents API
+(Qwen 3.5 122B), where the "model" is an agent id. Embeddings stay on OpenAI,
+because the FAISS index was built with `text-embedding-3-large` and KiWi has no
+embeddings endpoint. Any OpenAI-compatible Chat Completions endpoint can be used
+instead — e.g. OpenAI itself:
+
+```dotenv
+LLM_API_KEY="YOUR_OPENAI_API_KEY"
+OEKG_LLM_BASE_URL=https://api.openai.com/v1
+OEKG_SPARQL_MODEL=gpt-5.4-mini
+OEKG_SUMMARY_MODEL=gpt-5.4-nano
 ```
 
 All other settings have sensible defaults and can be overridden via `OEKG_*` environment variables (see the table below or `.env.example`).
@@ -92,14 +106,18 @@ printed URL yourself. To serve on the privileged port 80 (production), add
 
 ## ⚙️ Configuration
 
-All variables are optional except the two credentials. Defaults are shown.
+All variables are optional except the three credentials. Defaults are shown.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `OPENAI_API_KEY` | — | **Required.** OpenAI API key. |
+| `LLM_API_KEY` | — | **Required.** API key of the chat endpoint (KiWi). |
+| `OPENAI_API_KEY` | — | **Required.** OpenAI API key, used for embeddings only. |
 | `OEP_TOKEN` | — | **Required.** OEP API token. |
-| `OEKG_SPARQL_MODEL` | `gpt-5.4-mini` | Model for SPARQL generation. |
-| `OEKG_SUMMARY_MODEL` | `gpt-5.4-nano` | Model for summaries/explanations. |
+| `OEKG_LLM_BASE_URL` | KiWi agents API URL | OpenAI-compatible Chat Completions endpoint. |
+| `OEKG_SPARQL_MODEL` | KiWi agent id | Model (or agent id) for SPARQL generation. |
+| `OEKG_SUMMARY_MODEL` | KiWi agent id | Model (or agent id) for summaries/explanations. |
+| `OEKG_LLM_TIMEOUT` | `120` | Per-attempt timeout for the chat endpoint (seconds). |
+| `OEKG_LLM_MAX_RETRIES` | `1` | Retries after a timeout or 429/5xx from the chat endpoint. |
 | `OEKG_EMBEDDING_MODEL` | `text-embedding-3-large` | Embedding model (must match the FAISS index). |
 | `OEKG_RETRIEVAL_TOP_K` | `10` | Number of ontology docs retrieved per query. |
 | `OEKG_MAX_USER_HISTORY` | `5` | User turns kept as conversation context. |
@@ -163,7 +181,8 @@ automatically re-prompts** everyone for renewed consent.
 
 In short:
 
-- Your questions, relevant context, and parts of the knowledge graph are sent to the OpenAI API (US/EU servers).
+- Your questions, relevant context, and parts of the knowledge graph are sent to KiWi (Osnabrück University, processed in Germany).
+- The text of each question is sent to the OpenAI API (USA) to compute its embedding — nothing else goes to OpenAI.
 - `logs/requests.log` records the **text of every question** (no IP address or user identifier).
 - `query_cache.json` is **shared between all users**; entries are only written on an explicit user action.
 - **Do not submit personal, confidential, or sensitive information.**

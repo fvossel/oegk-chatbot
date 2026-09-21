@@ -163,3 +163,25 @@ def test_extract_literal_mentions():
 def test_extract_literal_mentions_dedup_and_none():
     assert extract_literal_mentions("?s rdfs:label 'A' . ?t rdfs:label 'A' . ?u rdfs:label \"B\"") == ["A", "B"]
     assert extract_literal_mentions("SELECT ?s WHERE { ?s ?p ?o }") == []
+
+
+def test_build_label_index_collects_doc_and_domain_range_labels():
+    from types import SimpleNamespace
+
+    from oekg.validation import build_label_index
+
+    resources = SimpleNamespace(documents_dict={
+        "oeo:R": {"uri": "oeo:R", "label": "has part", "range": [{"uri": "oeo:X", "label": "x thing"}]},
+        "oeo:C": {"class": "oeo:C", "label": "cls"},
+        "oeo:NOLABEL": {"class": "oeo:NOLABEL"},
+        "junk": "not a dict",
+    })
+    assert build_label_index(resources) == {"oeo:R": "has part", "oeo:X": "x thing", "oeo:C": "cls"}
+
+
+def test_query_term_labels_keeps_only_used_labelled_terms_in_order():
+    from oekg.validation import query_term_labels
+
+    labels = {"oeo:A": "a", "oeo:B": "b", "oeo:UNUSED": "u"}
+    query = "SELECT ?s { ?s oeo:B ?o . ?o a oeo:A . ?s oeo:B ?x . ?s obo:UNKNOWN ?y }"
+    assert query_term_labels(query, labels) == {"oeo:B": "b", "oeo:A": "a"}

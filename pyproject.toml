@@ -1,7 +1,7 @@
 [project]
 name = "oekg-chatbot"
 version = "0.1.0"
-description = "A GPT-powered chatbot for exploring and querying the Open Energy Knowledge Graph (OEKG) via SPARQL."
+description = "An LLM-powered chatbot for exploring and querying the Open Energy Knowledge Graph (OEKG) via SPARQL."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }

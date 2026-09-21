@@ -1,23 +1,33 @@
-"""OpenAI-backed language-model operations.
+"""Chat-model operations over an OpenAI-compatible Chat Completions endpoint.
 
 Wraps the LLM tasks of the pipeline -- generating a SPARQL query from a
 natural-language request, summarising the query results (optionally streamed),
 and explaining a query in plain language -- behind a single client so the model
 names and prompt assembly live in one place.
 
-The large static system prompt is always the leading content of every request,
-so OpenAI's automatic prompt caching applies to it; an optional
-``prompt_cache_key`` (passed via ``extra_body`` for SDK-version safety) improves
-cache routing.
+The endpoint defaults to KiWi (Osnabrück University's LibreChat agents API),
+where the "model" is an agent id, but any Chat Completions endpoint works,
+OpenAI's included. Chat Completions is used rather than the Responses API
+because it is the surface OpenAI-compatible servers actually implement fully:
+KiWi accepts Responses requests but never streams their text deltas. For the
+same reason every prompt uses the ``system`` role -- KiWi rejects ``developer``.
+
+The large static system prompt is always the leading message of every request,
+so prefix caching (OpenAI's automatic prompt caching, or the server's own)
+applies to it; an optional ``prompt_cache_key`` (passed via ``extra_body``, which
+servers that do not know it ignore) improves OpenAI's cache routing.
 """
 
 from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Iterator
+import re
+from itertools import chain
+from typing import Any, Iterable, Iterator
 
 from openai import OpenAI
+from openai.types.chat import ChatCompletionMessageParam
 
 from oekg.config import AppConfig, get_config
 from oekg.resources import Resources
@@ -28,8 +38,63 @@ _EXPLAIN_PROMPT = (
     "You explain SPARQL queries in plain language for an energy researcher who "
     "may not know SPARQL. In 2-4 short sentences, describe what the query "
     "retrieves and the main conditions it applies. Do not repeat the query and "
-    "do not include any code."
+    "do not include any code. Ontology identifiers such as oeo:OEO_00020227 are "
+    "opaque: refer to them only by the labels listed with the query, and never "
+    "guess what an identifier without a listed label means."
 )
+
+# Reasoning models (e.g. Qwen) may emit their chain of thought inline when the
+# server does not separate it. Left in, it would break every generated query.
+_REASONING_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+
+
+_THINK_OPEN = "<think>"
+_THINK_CLOSE = "</think>"
+
+
+def strip_reasoning(text: str) -> str:
+    """Remove inline ``<think>...</think>`` blocks from a model reply."""
+    return _REASONING_RE.sub("", text).strip()
+
+
+def _lstrip_stream(chunks: Iterable[str]) -> Iterator[str]:
+    """Drop leading whitespace from a chunk stream, however it is split."""
+    it = iter(chunks)
+    for chunk in it:
+        chunk = chunk.lstrip()
+        if chunk:
+            yield chunk
+            yield from it
+            return
+
+
+def strip_reasoning_stream(chunks: Iterable[str]) -> Iterator[str]:
+    """Streaming counterpart of :func:`strip_reasoning` for a leading block.
+
+    Reasoning models emit their thinking at the very start of a reply, so only
+    the beginning is buffered: as soon as it is clear there is no leading
+    ``<think>`` block, the buffer and every further chunk pass straight through
+    and the reply keeps streaming live. A block that never closes (a truncated
+    reply) is dropped entirely rather than shown.
+    """
+    buf = ""
+    it = iter(chunks)
+    for chunk in it:
+        buf += chunk
+        head = buf.lstrip().lower()
+        if _THINK_OPEN.startswith(head):
+            continue  # empty so far, or could still become the opening tag
+        if not head.startswith(_THINK_OPEN):
+            yield buf
+            yield from it
+            return
+        close = buf.lower().find(_THINK_CLOSE)
+        if close != -1:
+            yield from _lstrip_stream(chain([buf[close + len(_THINK_CLOSE):]], it))
+            return
+    head = buf.lstrip().lower()
+    if head and not head.startswith(_THINK_OPEN):
+        yield buf  # a short reply that merely looked like an opening tag
 
 
 def _compact_documents(documents: list[Any]) -> list[dict[str, Any]]:
@@ -59,8 +124,24 @@ def _compact_documents(documents: list[Any]) -> list[dict[str, Any]]:
     return compact
 
 
+def _messages(system: str, user: str) -> list[ChatCompletionMessageParam]:
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+
+
+def _deltas(stream: Iterable[Any]) -> Iterator[str]:
+    """Yield the text of each streamed chunk, skipping empty and usage-only ones."""
+    for chunk in stream:
+        if chunk.choices:
+            content = chunk.choices[0].delta.content
+            if content:
+                yield content
+
+
 class LLMClient:
-    """Thin wrapper around the OpenAI Responses API for this app's tasks."""
+    """Thin wrapper around the Chat Completions API for this app's tasks."""
 
     def __init__(self, client: OpenAI, resources: Resources, config: AppConfig | None = None) -> None:
         self._client = client
@@ -74,9 +155,18 @@ class LLMClient:
 
     @staticmethod
     def cached_tokens(response: Any) -> int:
-        """Safely read the number of cached input tokens from a response."""
-        details = getattr(getattr(response, "usage", None), "input_tokens_details", None)
+        """Safely read the number of cached prompt tokens from a response."""
+        details = getattr(getattr(response, "usage", None), "prompt_tokens_details", None)
         return int(getattr(details, "cached_tokens", 0) or 0)
+
+    def _complete(self, model: str, system: str, user: str) -> str:
+        response = self._client.chat.completions.create(
+            model=model,
+            messages=_messages(system, user),
+            extra_body=self._extra_body(),
+        )
+        logger.debug("completion | model=%s | cached_tokens=%s", model, self.cached_tokens(response))
+        return strip_reasoning(response.choices[0].message.content or "")
 
     def generate_sparql(self, query: str, documents: list, grounding: str | None = None) -> str:
         """Generate a SPARQL query from an NL request and context documents."""
@@ -88,69 +178,61 @@ class LLMClient:
         )
         if grounding:
             user_prompt += "\n\n" + grounding
-        response = self._client.responses.create(
-            model=self._config.sparql_model,
-            input=[
-                {"role": "developer", "content": self._resources.sparql_system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            extra_body=self._extra_body(),
+        return self._complete(
+            self._config.sparql_model, self._resources.sparql_system_prompt, user_prompt
         )
-        logger.debug("sparql generation | cached_tokens=%s", self.cached_tokens(response))
-        return response.output_text
 
-    def _summary_input(self, sparql_results: str, nl_query: str) -> list[Any]:
-        return [
-            {"role": "developer", "content": self._resources.summary_system_prompt},
-            {
-                "role": "user",
-                "content": "The users question:"
-                + nl_query
-                + "\nThe formatted results from the SPARQL query:"
-                + sparql_results,
-            },
-        ]
+    @staticmethod
+    def _summary_user_prompt(sparql_results: str, nl_query: str) -> str:
+        return (
+            "The users question:"
+            + nl_query
+            + "\nThe formatted results from the SPARQL query:"
+            + sparql_results
+        )
 
     def summarise(self, sparql_results: str, nl_query: str) -> str:
         """Summarise SPARQL results in natural language (best effort)."""
         try:
-            response = self._client.responses.create(
-                model=self._config.summary_model,
-                input=self._summary_input(sparql_results, nl_query),
-                extra_body=self._extra_body(),
+            return self._complete(
+                self._config.summary_model,
+                self._resources.summary_system_prompt,
+                self._summary_user_prompt(sparql_results, nl_query),
             )
-            return response.output_text
         except Exception:  # noqa: BLE001 - summary is optional
             logger.exception("Result summarisation failed")
             return ""
 
     def summarise_stream(self, sparql_results: str, nl_query: str) -> Iterator[str]:
-        """Yield the summary in text chunks via the Responses streaming API."""
+        """Yield the summary in text chunks via the streaming Chat Completions API."""
         try:
-            stream = self._client.responses.create(
+            stream = self._client.chat.completions.create(
                 model=self._config.summary_model,
-                input=self._summary_input(sparql_results, nl_query),
+                messages=_messages(
+                    self._resources.summary_system_prompt,
+                    self._summary_user_prompt(sparql_results, nl_query),
+                ),
                 extra_body=self._extra_body(),
                 stream=True,
             )
-            for event in stream:
-                if getattr(event, "type", "") == "response.output_text.delta":
-                    yield getattr(event, "delta", "")
+            yield from strip_reasoning_stream(_deltas(stream))
         except Exception:  # noqa: BLE001 - summary is optional
             logger.exception("Streaming summarisation failed")
 
-    def explain_sparql(self, query: str) -> str:
-        """Explain a SPARQL query in plain language (best effort)."""
-        try:
-            response = self._client.responses.create(
-                model=self._config.summary_model,
-                input=[
-                    {"role": "developer", "content": _EXPLAIN_PROMPT},
-                    {"role": "user", "content": query},
-                ],
-                extra_body=self._extra_body(),
+    def explain_sparql(self, query: str, term_labels: dict[str, str] | None = None) -> str:
+        """Explain a SPARQL query in plain language (best effort).
+
+        ``term_labels`` maps the query's ontology identifiers to their labels.
+        Without them a model has to guess what an opaque id like OEO_00020227
+        stands for -- and some models guess confidently and wrongly.
+        """
+        user_prompt = query
+        if term_labels:
+            user_prompt += "\n\nLabels of the ontology identifiers used in this query:\n" + "\n".join(
+                f"- {term}: {label}" for term, label in term_labels.items()
             )
-            return response.output_text
+        try:
+            return self._complete(self._config.summary_model, _EXPLAIN_PROMPT, user_prompt)
         except Exception:  # noqa: BLE001 - explanation is optional
             logger.exception("SPARQL explanation failed")
             return ""

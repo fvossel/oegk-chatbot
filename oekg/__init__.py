@@ -7,7 +7,8 @@ Houses the application's domain logic, split into clear layers:
 - :mod:`oekg.cache`      - persistent question -> SPARQL cache.
 - :mod:`oekg.resources`  - loading of static resources (index, prompts, ...).
 - :mod:`oekg.retrieval`  - semantic document retrieval.
-- :mod:`oekg.llm`        - OpenAI-backed SPARQL generation and summarisation.
+- :mod:`oekg.llm`        - SPARQL generation and summarisation via an
+                           OpenAI-compatible chat endpoint (KiWi by default).
 - :mod:`oekg.oep`        - Open Energy Platform SPARQL execution.
 - :mod:`oekg.pipeline`   - end-to-end orchestration.
 
