@@ -70,8 +70,8 @@ OEP_TOKEN="YOUR_OEP_API_TOKEN"
 
 Both models run on **Osnabrück University's LiteLLM gateway**
 (`litellm.uni-osnabrueck.de`): **Qwen3.5-122B** for chat and **BGE-M3** for the
-embeddings. One key authenticates both, and no user input leaves the
-university's infrastructure. Any OpenAI-compatible endpoint can be used
+embeddings. One key authenticates both, and no question text reaches a
+commercial model provider. Any OpenAI-compatible endpoint can be used
 instead — e.g. OpenAI itself:
 
 ```dotenv
