@@ -320,9 +320,9 @@ def render_consent_gate() -> bool:
 
     st.subheader("Before you start")
     st.markdown(
-        "This chatbot sends your questions to the KiWi language model of Osnabrück "
-        "University, and the text of each question to OpenAI (processing in the USA) "
-        "for semantic search. Please read the privacy policy below and confirm that "
+        "This chatbot sends your questions to language models operated by Osnabrück "
+        "University, which run on the university's own infrastructure in Germany. "
+        "Please read the privacy policy below and confirm that "
         "you agree — the chatbot stays disabled until you do.\n\n"
         "**Do not enter personal, confidential or sensitive information.**"
     )
@@ -385,9 +385,9 @@ st.set_page_config(page_title=APP_TITLE, page_icon=str(CONFIG.logo_path))
 
 st.warning(
     "⚠️ **Privacy Notice:**\n\n"
-    "- Your questions, selected context, and graph snippets are sent to the KiWi language model of "
-    "Osnabrück University; the text of each question is also sent to OpenAI (processed in the USA) "
-    "for semantic search. Do not submit personal, confidential, or sensitive information.\n"
+    "- Your questions, selected context, and graph snippets are sent to the language models operated by "
+    "Osnabrück University (processed in Germany). Do not submit personal, confidential, or "
+    "sensitive information.\n"
     "- The full privacy policy is shown before you start and stays available in the sidebar."
 )
 
@@ -449,7 +449,6 @@ _missing = [
     name
     for name, value in (
         ("LLM_API_KEY", CONFIG.llm_api_key),
-        ("OPENAI_API_KEY", CONFIG.openai_api_key),
         ("OEP_TOKEN", CONFIG.oep_token),
     )
     if not value

@@ -57,6 +57,7 @@ class FakeLLM:
         return self.sparql
 
     def summarise(self, sparql_results, nl_query):
+        self.summarised = (sparql_results, nl_query)
         return "A short summary."
 
     def explain_sparql(self, query, term_labels=None):
@@ -302,13 +303,13 @@ def test_ontology_links_from_results():
     assert links[0]["url"].endswith("/OEO_00000064/")
 
 
-# -- chat client construction -------------------------------------------------
+# -- client construction ----------------------------------------------------
 
 
 def test_missing_llm_api_key_never_falls_back_to_the_openai_key(monkeypatch):
     import pytest
 
-    # The SDK would pick this up for api_key=None and send it to KiWi.
+    # The SDK would pick this up for api_key=None and send it to the gateway.
     monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-secret")
     cfg = replace(get_config(), llm_api_key=None)
     with pytest.raises(ValueError, match="LLM_API_KEY"):
@@ -318,7 +319,7 @@ def test_missing_llm_api_key_never_falls_back_to_the_openai_key(monkeypatch):
 def test_chat_client_targets_the_configured_endpoint_with_a_retry_cap():
     cfg = replace(
         get_config(),
-        llm_api_key="kiwi-test-key",
+        llm_api_key="gateway-test-key",
         llm_base_url="https://llm.example.org/v1",
         llm_timeout=42.0,
         llm_max_retries=1,
@@ -328,7 +329,7 @@ def test_chat_client_targets_the_configured_endpoint_with_a_retry_cap():
         embedding_client=object(), retriever=FakeRetriever(), llm=FakeLLM(), oep=FakeOEP(pd.DataFrame()),
     )
     client = pipeline._chat_client
-    assert client.api_key == "kiwi-test-key"
+    assert client.api_key == "gateway-test-key"
     assert str(client.base_url).rstrip("/") == "https://llm.example.org/v1"
     assert client.max_retries == 1
     assert client.timeout == 42.0
@@ -343,3 +344,39 @@ def test_explain_sparql_passes_labels_of_the_terms_used_in_the_query():
     pipeline = _build(FakeCache(), llm, FakeOEP(pd.DataFrame()), resources=_resources(docs, list(docs)))
     assert pipeline.explain_sparql("SELECT (COUNT(?s) AS ?n) { ?s a oeo:OEO_00020227 . }") == "explanation"
     assert llm.explained[1] == {"oeo:OEO_00020227": "scenario bundle"}
+
+
+def test_summary_input_states_the_row_count():
+    # The summary runs with the model's reasoning off, so it must not have to count.
+    df = pd.DataFrame([{"a": i} for i in range(3)])
+    llm = FakeLLM()
+    _build(FakeCache(), llm, FakeOEP(df)).answer("q")
+    assert llm.summarised[0].startswith("Query Results (3 rows):")
+
+
+def test_embedding_client_targets_the_configured_endpoint():
+    cfg = replace(
+        get_config(),
+        embedding_api_key="gateway-test-key",
+        embedding_base_url="https://embed.example.org/v1",
+        llm_timeout=42.0,
+        llm_max_retries=1,
+    )
+    pipeline = RagPipeline(
+        _resources(), FakeCache(), cfg,
+        chat_client=object(), retriever=FakeRetriever(), llm=FakeLLM(), oep=FakeOEP(pd.DataFrame()),
+    )
+    client = pipeline._embedding_client
+    assert client.api_key == "gateway-test-key"
+    assert str(client.base_url).rstrip("/") == "https://embed.example.org/v1"
+    assert client.max_retries == 1
+    assert client.timeout == 42.0
+
+
+def test_missing_embedding_key_never_falls_back_to_the_openai_key(monkeypatch):
+    import pytest
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-secret")
+    cfg = replace(get_config(), embedding_api_key=None)
+    with pytest.raises(ValueError, match="EMBEDDING_API_KEY"):
+        RagPipeline(_resources(), FakeCache(), cfg, chat_client=object())

@@ -24,3 +24,21 @@ def test_sane_defaults():
     assert cfg.uri_validation_enabled is True
     assert cfg.request_log_path.name == "requests.log"
     assert cfg.error_log_path.name == "errors.log"
+
+
+def test_chat_and_embeddings_default_to_the_same_gateway():
+    # PRIVACY.md section 3.1 claims no user input leaves the university's
+    # infrastructure; that holds only while both endpoints point there.
+    cfg = AppConfig()
+    assert cfg.llm_base_url == "https://litellm.uni-osnabrueck.de/v1"
+    assert cfg.embedding_base_url == cfg.llm_base_url
+    assert cfg.embedding_model == "bge-m3"
+
+
+def test_embedding_key_falls_back_to_the_chat_key(monkeypatch):
+    monkeypatch.delenv("EMBEDDING_API_KEY", raising=False)
+    monkeypatch.setenv("LLM_API_KEY", "shared-gateway-key")
+    assert AppConfig().embedding_api_key == "shared-gateway-key"
+    # An explicit key wins, for embeddings served by a separate endpoint.
+    monkeypatch.setenv("EMBEDDING_API_KEY", "separate-key")
+    assert AppConfig().embedding_api_key == "separate-key"

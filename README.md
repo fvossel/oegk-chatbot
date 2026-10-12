@@ -26,7 +26,8 @@ The Streamlit entry point [`streamlit_app.py`](streamlit_app.py) only wires thin
 | `oekg/config.py` | Central, env-overridable configuration (`AppConfig`). |
 | `oekg/resources.py` | Loads the FAISS index, ontology docs and system prompts. |
 | `oekg/retrieval.py` | Embeds a query and returns the top-k ontology documents. |
-| `oekg/llm.py` | SPARQL generation, summarisation and explanation via any OpenAI-compatible Chat Completions endpoint (KiWi by default). |
+| `oekg/build_index.py` | Manual rebuild of `vector_store.faiss` + `ids.json`. |
+| `oekg/llm.py` | SPARQL generation, summarisation and explanation via any OpenAI-compatible Chat Completions endpoint. |
 | `oekg/validation.py` | Offline check of generated URIs against the OEKG vocabulary. |
 | `oekg/oep.py` | OEP SPARQL execution, URI resolution and scenario bundling. |
 | `oekg/pipeline.py` | End-to-end orchestration (`RagPipeline`). |
@@ -63,15 +64,14 @@ pip install -e ".[dev]"
 Copy [`.env.example`](.env.example) to `.env` and fill in your keys (`.env` is gitignored):
 
 ```dotenv
-LLM_API_KEY="YOUR_KIWI_API_KEY"
-OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
+LLM_API_KEY="YOUR_GATEWAY_API_KEY"
 OEP_TOKEN="YOUR_OEP_API_TOKEN"
 ```
 
-The chat model runs on **KiWi**, Osnabrück University's LibreChat agents API
-(Qwen 3.5 122B), where the "model" is an agent id. Embeddings stay on OpenAI,
-because the FAISS index was built with `text-embedding-3-large` and KiWi has no
-embeddings endpoint. Any OpenAI-compatible Chat Completions endpoint can be used
+Both models run on **Osnabrück University's LiteLLM gateway**
+(`litellm.uni-osnabrueck.de`): **Qwen3.5-122B** for chat and **BGE-M3** for the
+embeddings. One key authenticates both, and no user input leaves the
+university's infrastructure. Any OpenAI-compatible endpoint can be used
 instead — e.g. OpenAI itself:
 
 ```dotenv
@@ -79,7 +79,21 @@ LLM_API_KEY="YOUR_OPENAI_API_KEY"
 OEKG_LLM_BASE_URL=https://api.openai.com/v1
 OEKG_SPARQL_MODEL=gpt-5.4-mini
 OEKG_SUMMARY_MODEL=gpt-5.4-nano
+OEKG_LLM_NO_THINK=0
+OEKG_EMBEDDING_BASE_URL=https://api.openai.com/v1
+OEKG_EMBEDDING_MODEL=text-embedding-3-large
 ```
+
+Changing the embedding model or its endpoint **requires rebuilding the vector
+store** (see step 4): query and document vectors must come from the same model.
+A separate `EMBEDDING_API_KEY` can be set when embeddings are served by a
+different provider than the chat model.
+
+**Reasoning** is requested only for SPARQL generation, the one step where it
+changes the result. Summaries and explanations run without it, which on the
+default model takes about 1 s instead of 6 s per call. The switch is sent as an
+extra request parameter; endpoints that reject unknown parameters (OpenAI) need
+`OEKG_LLM_NO_THINK=0`.
 
 All other settings have sensible defaults and can be overridden via `OEKG_*` environment variables (see the table below or `.env.example`).
 
@@ -87,9 +101,18 @@ All other settings have sensible defaults and can be overridden via `OEKG_*` env
 
 The RAG resources ship with the repository and need no manual setup:
 `vector_store.faiss`, `classes.json`, `relations_final.json`, `ids.json`,
-`sparql_system_prompt.txt`, `summary_system_prompt.txt`, `logo.svg`. The FAISS
-index was built with `text-embedding-3-large`; if you change
-`OEKG_EMBEDDING_MODEL`, the index must be regenerated to match.
+`sparql_system_prompt.txt`, `summary_system_prompt.txt`, `logo.svg`.
+
+The index ships pre-built with `bge-m3` (1024 dimensions, 60 ontology
+documents). If you change `OEKG_EMBEDDING_MODEL` or
+`OEKG_EMBEDDING_BASE_URL`, regenerate it so document and query vectors match:
+
+```bash
+python -m oekg.build_index
+```
+
+The app refuses to start if the index and `ids.json` disagree, so a half-done
+switch fails loudly instead of degrading retrieval silently.
 
 ### 5. Run the app
 
@@ -110,20 +133,22 @@ All variables are optional except the three credentials. Defaults are shown.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `LLM_API_KEY` | — | **Required.** API key of the chat endpoint (KiWi). |
-| `OPENAI_API_KEY` | — | **Required.** OpenAI API key, used for embeddings only. |
+| `LLM_API_KEY` | — | **Required.** API key of the gateway (chat *and* embeddings). |
 | `OEP_TOKEN` | — | **Required.** OEP API token. |
-| `OEKG_LLM_BASE_URL` | KiWi agents API URL | OpenAI-compatible Chat Completions endpoint. |
-| `OEKG_SPARQL_MODEL` | KiWi agent id | Model (or agent id) for SPARQL generation. |
-| `OEKG_SUMMARY_MODEL` | KiWi agent id | Model (or agent id) for summaries/explanations. |
+| `EMBEDDING_API_KEY` | `LLM_API_KEY` | Only needed if embeddings run elsewhere. |
+| `OEKG_LLM_BASE_URL` | `https://litellm.uni-osnabrueck.de/v1` | OpenAI-compatible Chat Completions endpoint. |
+| `OEKG_SPARQL_MODEL` | `Qwen/Qwen3.5-122B-A10B-FP8` | Model for SPARQL generation (keeps reasoning). |
+| `OEKG_SUMMARY_MODEL` | `Qwen/Qwen3.5-122B-A10B-FP8` | Model for summaries/explanations (reasoning off). |
+| `OEKG_LLM_NO_THINK` | `1` | Skip the reasoning pass for summaries/explanations. |
 | `OEKG_LLM_TIMEOUT` | `120` | Per-attempt timeout for the chat endpoint (seconds). |
 | `OEKG_LLM_MAX_RETRIES` | `1` | Retries after a timeout or 429/5xx from the chat endpoint. |
-| `OEKG_EMBEDDING_MODEL` | `text-embedding-3-large` | Embedding model (must match the FAISS index). |
+| `OEKG_EMBEDDING_BASE_URL` | `https://litellm.uni-osnabrueck.de/v1` | OpenAI-compatible embeddings endpoint. |
+| `OEKG_EMBEDDING_MODEL` | `bge-m3` | Embedding model (must match the FAISS index). |
 | `OEKG_RETRIEVAL_TOP_K` | `10` | Number of ontology docs retrieved per query. |
 | `OEKG_MAX_USER_HISTORY` | `5` | User turns kept as conversation context. |
 | `OEKG_MAX_SUMMARY_CHARS` | `10000` | Max result size (chars) that is summarised. |
 | `OEKG_MAX_INPUT_CHARS` | `2000` | Max length of a user question. |
-| `OEKG_PROMPT_CACHE_KEY` | _(empty)_ | Optional OpenAI prompt-cache routing key. |
+| `OEKG_PROMPT_CACHE_KEY` | _(empty)_ | Optional prompt-cache routing key. |
 | `OEKG_URI_VALIDATION` | `1` | Validate generated URIs against the vocabulary. |
 | `OEKG_NORMALISE_OUTPUT` | `1` | Strip stray markdown fences/labels from model output. |
 | `OEKG_SYNTAX_VALIDATION` | `1` | Local rdflib syntax pre-flight (advisory). |
@@ -181,8 +206,8 @@ automatically re-prompts** everyone for renewed consent.
 
 In short:
 
-- Your questions, relevant context, and parts of the knowledge graph are sent to KiWi (Osnabrück University, processed in Germany).
-- The text of each question is sent to the OpenAI API (USA) to compute its embedding — nothing else goes to OpenAI.
+- Your questions, relevant context, and parts of the knowledge graph are sent to the university's LiteLLM gateway (Osnabrück University, processed in Germany) — both for the chat model and for the embeddings.
+- No user input is transferred outside the EU, and nothing is sent to a commercial model provider.
 - `logs/requests.log` records the **text of every question** (no IP address or user identifier).
 - `query_cache.json` is **shared between all users**; entries are only written on an explicit user action.
 - **Do not submit personal, confidential, or sensitive information.**

@@ -104,14 +104,24 @@ class RagPipeline:
         self._relation_schema: dict[str, dict[str, Any]] | None = None
 
         # Collaborators default to real implementations but can be injected
-        # (e.g. for testing). Both clients are reused across requests. They are
-        # separate because the two APIs live with different providers: chat on
-        # the configured endpoint (KiWi by default), embeddings on OpenAI.
+        # (e.g. for testing). Both clients are reused across requests. They stay
+        # separate so chat and embeddings remain independently configurable,
+        # even though both default to the same gateway.
+        # With api_key=None the SDK silently falls back to OPENAI_API_KEY and
+        # would send that secret to a non-OpenAI endpoint.
         if chat_client is None and not self._config.llm_api_key:
-            # With api_key=None the SDK silently falls back to OPENAI_API_KEY and
-            # would send that secret to the (non-OpenAI) chat endpoint.
             raise ValueError("LLM_API_KEY is not set; refusing to fall back to OPENAI_API_KEY")
-        self._embedding_client = embedding_client or OpenAI(api_key=self._config.openai_api_key)
+        if embedding_client is None and not self._config.embedding_api_key:
+            raise ValueError(
+                "No embedding key is set; refusing to fall back to OPENAI_API_KEY. "
+                "Set LLM_API_KEY, or EMBEDDING_API_KEY for a separate endpoint."
+            )
+        self._embedding_client = embedding_client or OpenAI(
+            api_key=self._config.embedding_api_key,
+            base_url=self._config.embedding_base_url,
+            timeout=self._config.llm_timeout,
+            max_retries=self._config.llm_max_retries,
+        )
         self._chat_client = chat_client or OpenAI(
             api_key=self._config.llm_api_key,
             base_url=self._config.llm_base_url,
@@ -463,7 +473,10 @@ class RagPipeline:
         corrected = corrected or execution.repaired
 
         df = execution.results_df
-        results_md = "Query Results:\n" + (
+        # State the row count instead of leaving it to be counted: the summary
+        # runs without the model's reasoning pass, and counting is exactly what
+        # a non-reasoning model gets wrong on a long table.
+        results_md = f"Query Results ({len(df)} rows):\n" + (
             df.to_markdown(index=False) if not df.empty else "No results found."
         )
         should_summarise = not df.empty and len(results_md) < self._config.max_summary_input_chars

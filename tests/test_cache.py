@@ -82,3 +82,15 @@ def test_semantic_match_returns_closest_above_threshold(tmp_path):
 
     # Nothing close enough -> no match.
     assert cache.semantic_match([0.7, 0.7], threshold=0.99) is None
+
+
+def test_semantic_match_skips_entries_from_another_embedding_model(tmp_path):
+    # Entries written before an embedding-model switch have a different
+    # dimension; comparing them would raise instead of just missing.
+    cache = QueryCache(tmp_path / "c.json")
+    cache.put("Stale entry", "SELECT a", embedding=[1.0, 0.0, 0.0])
+    cache.put("Current entry", "SELECT b", embedding=[0.0, 1.0])
+
+    match = cache.semantic_match([0.0, 1.0], threshold=0.9)
+    assert match is not None
+    assert match[0].question == "Current entry"

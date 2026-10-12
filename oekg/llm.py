@@ -5,12 +5,19 @@ natural-language request, summarising the query results (optionally streamed),
 and explaining a query in plain language -- behind a single client so the model
 names and prompt assembly live in one place.
 
-The endpoint defaults to KiWi (Osnabrück University's LibreChat agents API),
-where the "model" is an agent id, but any Chat Completions endpoint works,
-OpenAI's included. Chat Completions is used rather than the Responses API
-because it is the surface OpenAI-compatible servers actually implement fully:
-KiWi accepts Responses requests but never streams their text deltas. For the
-same reason every prompt uses the ``system`` role -- KiWi rejects ``developer``.
+The endpoint defaults to Osnabrück University's LiteLLM gateway serving
+Qwen3.5-122B, but any Chat Completions endpoint works, OpenAI's included. Chat
+Completions is used rather than the Responses API because it is the surface
+OpenAI-compatible servers actually implement fully. Every prompt uses the
+``system`` role, which such servers accept while some reject ``developer``.
+
+Reasoning ("thinking") is requested only where it pays for itself. Generating a
+SPARQL query is the one genuinely hard step, so it keeps thinking; summarising a
+result table and explaining a query are short, mechanical tasks where it only
+adds latency -- on the default model roughly 6 s instead of 1 s per call. The
+switch travels in ``extra_body``, so an endpoint that does not know it ignores
+the key; set ``OEKG_LLM_NO_THINK=0`` for endpoints that reject unknown
+parameters outright (OpenAI does).
 
 The large static system prompt is always the leading message of every request,
 so prefix caching (OpenAI's automatic prompt caching, or the server's own)
@@ -45,7 +52,13 @@ _EXPLAIN_PROMPT = (
 
 # Reasoning models (e.g. Qwen) may emit their chain of thought inline when the
 # server does not separate it. Left in, it would break every generated query.
+# (The default gateway returns it in a separate ``reasoning_content`` field,
+# which the SDK keeps out of ``content``; this stays as a safety net.)
 _REASONING_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+
+# Turns the reasoning pass off for a single request. This is the vLLM/Qwen chat
+# template switch, which the gateway forwards to the model.
+_NO_THINK_BODY: dict[str, Any] = {"chat_template_kwargs": {"enable_thinking": False}}
 
 
 _THINK_OPEN = "<think>"
@@ -148,10 +161,15 @@ class LLMClient:
         self._resources = resources
         self._config = config or get_config()
 
-    def _extra_body(self) -> dict[str, Any] | None:
-        """Pass a prompt-cache routing key when configured (SDK-version safe)."""
+    def _extra_body(self, *, thinking: bool) -> dict[str, Any] | None:
+        """Build the non-standard request body: cache routing and the think switch."""
+        body: dict[str, Any] = {}
         key = self._config.prompt_cache_key
-        return {"prompt_cache_key": key} if key else None
+        if key:
+            body["prompt_cache_key"] = key
+        if not thinking and self._config.no_think_enabled:
+            body.update(_NO_THINK_BODY)
+        return body or None
 
     @staticmethod
     def cached_tokens(response: Any) -> int:
@@ -159,11 +177,11 @@ class LLMClient:
         details = getattr(getattr(response, "usage", None), "prompt_tokens_details", None)
         return int(getattr(details, "cached_tokens", 0) or 0)
 
-    def _complete(self, model: str, system: str, user: str) -> str:
+    def _complete(self, model: str, system: str, user: str, *, thinking: bool) -> str:
         response = self._client.chat.completions.create(
             model=model,
             messages=_messages(system, user),
-            extra_body=self._extra_body(),
+            extra_body=self._extra_body(thinking=thinking),
         )
         logger.debug("completion | model=%s | cached_tokens=%s", model, self.cached_tokens(response))
         return strip_reasoning(response.choices[0].message.content or "")
@@ -178,8 +196,13 @@ class LLMClient:
         )
         if grounding:
             user_prompt += "\n\n" + grounding
+        # The one step worth thinking about: it has to pick the right classes,
+        # relations and shape from the retrieved context.
         return self._complete(
-            self._config.sparql_model, self._resources.sparql_system_prompt, user_prompt
+            self._config.sparql_model,
+            self._resources.sparql_system_prompt,
+            user_prompt,
+            thinking=True,
         )
 
     @staticmethod
@@ -198,6 +221,7 @@ class LLMClient:
                 self._config.summary_model,
                 self._resources.summary_system_prompt,
                 self._summary_user_prompt(sparql_results, nl_query),
+                thinking=False,
             )
         except Exception:  # noqa: BLE001 - summary is optional
             logger.exception("Result summarisation failed")
@@ -212,7 +236,7 @@ class LLMClient:
                     self._resources.summary_system_prompt,
                     self._summary_user_prompt(sparql_results, nl_query),
                 ),
-                extra_body=self._extra_body(),
+                extra_body=self._extra_body(thinking=False),
                 stream=True,
             )
             yield from strip_reasoning_stream(_deltas(stream))
@@ -232,7 +256,9 @@ class LLMClient:
                 f"- {term}: {label}" for term, label in term_labels.items()
             )
         try:
-            return self._complete(self._config.summary_model, _EXPLAIN_PROMPT, user_prompt)
+            return self._complete(
+                self._config.summary_model, _EXPLAIN_PROMPT, user_prompt, thinking=False
+            )
         except Exception:  # noqa: BLE001 - explanation is optional
             logger.exception("SPARQL explanation failed")
             return ""

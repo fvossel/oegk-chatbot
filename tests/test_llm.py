@@ -82,7 +82,7 @@ def test_generate_sparql_orders_static_prompt_first():
 
 
 def test_no_developer_role_is_ever_sent():
-    # KiWi rejects the "developer" role with HTTP 400.
+    # Some OpenAI-compatible servers reject the "developer" role with HTTP 400.
     client, llm = _llm()
     llm.generate_sparql("x", [])
     llm.summarise("rows", "q")
@@ -161,7 +161,7 @@ def test_cached_tokens_reads_usage():
 
 def test_cached_tokens_missing_usage_returns_zero():
     assert LLMClient.cached_tokens(SimpleNamespace()) == 0
-    # KiWi reports usage without any details object.
+    # Some gateways report usage without any details object.
     assert LLMClient.cached_tokens(SimpleNamespace(usage=SimpleNamespace())) == 0
 
 
@@ -234,3 +234,44 @@ def test_explain_prompt_forbids_guessing_identifier_meanings():
     client, llm = _llm()
     llm.explain_sparql("SELECT 1")
     assert "never guess" in _calls(client)[0]["messages"][0]["content"]
+
+
+# -- thinking is requested only for SPARQL generation ----------------------------
+
+
+def _think_off(call):
+    return call["extra_body"] is not None and call["extra_body"].get("chat_template_kwargs") == {
+        "enable_thinking": False
+    }
+
+
+def test_sparql_generation_keeps_thinking_on():
+    client, llm = _llm()
+    llm.generate_sparql("find x", [])
+    assert not _think_off(_calls(client)[0])
+
+
+def test_summary_and_explanation_turn_thinking_off():
+    client, llm = _llm(stream_parts=[_chunk("hi")])
+    llm.summarise("rows", "q")
+    llm.explain_sparql("SELECT 1")
+    list(llm.summarise_stream("rows", "q"))
+    assert all(_think_off(call) for call in _calls(client))
+
+
+def test_no_think_switch_can_be_disabled_for_strict_endpoints():
+    cfg = replace(get_config(), no_think_enabled=False)
+    client = _FakeClient()
+    LLMClient(client, _FakeResources(), cfg).summarise("rows", "q")
+    assert _calls(client)[0]["extra_body"] is None
+
+
+def test_cache_key_and_think_switch_travel_together():
+    client, llm = _llm(prompt_cache_key="oekg-v1")
+    llm.summarise("rows", "q")
+    llm.generate_sparql("x", [])
+    assert _calls(client)[0]["extra_body"] == {
+        "prompt_cache_key": "oekg-v1",
+        "chat_template_kwargs": {"enable_thinking": False},
+    }
+    assert _calls(client)[1]["extra_body"] == {"prompt_cache_key": "oekg-v1"}

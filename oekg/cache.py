@@ -173,6 +173,9 @@ class QueryCache:
             if not stored:
                 continue
             vec = np.asarray(stored, dtype=np.float32)
+            if vec.shape != query.shape:
+                # Written by a different embedding model; not comparable.
+                continue
             norm = float(np.linalg.norm(vec))
             if norm == 0.0:
                 continue

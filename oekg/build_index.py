@@ -4,8 +4,8 @@ Run as ``python -m oekg.build_index``. This embeds every class and relation with
 the configured embedding model and writes a fresh ``vector_store.faiss`` and
 matching ``ids.json`` (index row *i* corresponds to ``ids[i]``). It is the
 canonical, reproducible way to regenerate the index -- and the only safe way to
-switch ``OEKG_EMBEDDING_MODEL``, since the query and document embeddings must
-come from the same model.
+switch ``OEKG_EMBEDDING_MODEL`` or ``OEKG_EMBEDDING_BASE_URL``, since the query
+and document embeddings must come from the same model.
 
 This OVERWRITES the configured index/ids paths, so it is a deliberate manual
 step, never run automatically.
@@ -33,7 +33,10 @@ def _doc_text(doc: dict) -> str:
 def build_index(config: AppConfig | None = None) -> int:
     """Build the FAISS index + ids.json. Returns the number of documents indexed."""
     config = config or get_config()
-    client = OpenAI(api_key=config.openai_api_key)
+    client = OpenAI(
+        api_key=config.embedding_api_key,
+        base_url=config.embedding_base_url,
+    )
 
     classes = _read_json(config.classes_path)
     relations = _read_json(config.relations_path)
@@ -54,7 +57,7 @@ def build_index(config: AppConfig | None = None) -> int:
     print(
         f"Indexed {len(ids)} documents "
         f"({len(classes)} classes + {len(relations)} relations) "
-        f"with {config.embedding_model}.\n"
+        f"with {config.embedding_model} ({config.embedding_base_url}).\n"
         f"Wrote {config.faiss_index_path} and {config.ids_path}."
     )
     return len(ids)
