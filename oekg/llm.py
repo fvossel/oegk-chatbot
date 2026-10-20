@@ -5,24 +5,32 @@ natural-language request, summarising the query results (optionally streamed),
 and explaining a query in plain language -- behind a single client so the model
 names and prompt assembly live in one place.
 
-The endpoint defaults to Osnabrück University's LiteLLM gateway serving
-Qwen3.5-122B, but any Chat Completions endpoint works, OpenAI's included. Chat
-Completions is used rather than the Responses API because it is the surface
-OpenAI-compatible servers actually implement fully. Every prompt uses the
-``system`` role, which such servers accept while some reject ``developer``.
+The endpoint defaults to KiWi, Osnabrück University's LibreChat agents API,
+where the "model" is an agent id and the agent pins the underlying model
+server-side. Any Chat Completions endpoint works instead. Chat Completions is
+used rather than the Responses API because it is the surface OpenAI-compatible
+servers actually implement fully: KiWi accepts Responses requests but never
+streams their text deltas. For the same reason every prompt uses the ``system``
+role -- KiWi rejects ``developer``.
 
 Reasoning ("thinking") is requested only where it pays for itself. Generating a
 SPARQL query is the one genuinely hard step, so it keeps thinking; summarising a
 result table and explaining a query are short, mechanical tasks where it only
-adds latency -- on the default model roughly 6 s instead of 1 s per call. The
-switch travels in ``extra_body``, so an endpoint that does not know it ignores
-the key; set ``OEKG_LLM_NO_THINK=0`` for endpoints that reject unknown
-parameters outright (OpenAI does).
+adds latency. The switch travels in ``extra_body``, so a server that does not
+know it ignores the key. KiWi's agent does exactly that -- it has no reasoning
+pass at all, so on the default endpoint the distinction is inert and every call
+is a plain completion. It takes effect on an endpoint that honours the switch,
+such as the university gateway's Qwen; set ``OEKG_LLM_NO_THINK=0`` for one that
+rejects unknown parameters outright.
+
+``strip_reasoning`` below therefore earns its keep as a safety net rather than
+a necessity: should an endpoint emit ``<think>`` blocks inline instead of in a
+separate field, they never reach the user.
 
 The large static system prompt is always the leading message of every request,
-so prefix caching (OpenAI's automatic prompt caching, or the server's own)
-applies to it; an optional ``prompt_cache_key`` (passed via ``extra_body``, which
-servers that do not know it ignore) improves OpenAI's cache routing.
+so whatever prefix caching the server implements applies to it; an optional
+``prompt_cache_key`` (passed via ``extra_body``, which servers that do not know
+it ignore) improves cache routing where it is supported.
 """
 
 from __future__ import annotations
@@ -57,7 +65,7 @@ _EXPLAIN_PROMPT = (
 _REASONING_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
 
 # Turns the reasoning pass off for a single request. This is the vLLM/Qwen chat
-# template switch, which the gateway forwards to the model.
+# template switch; a server that does not know it ignores it (KiWi does).
 _NO_THINK_BODY: dict[str, Any] = {"chat_template_kwargs": {"enable_thinking": False}}
 
 

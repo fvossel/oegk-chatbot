@@ -15,16 +15,25 @@ from pathlib import Path
 # Repository root (this file lives in <root>/oekg/config.py).
 ROOT_DIR = Path(__file__).resolve().parent.parent
 
-# Osnabrück University's AI gateway. It serves both the chat model and the
-# embedding model, so with the defaults below no user input leaves German
-# infrastructure.
+# Both endpoints below are operated by Osnabrück University and run on its own
+# infrastructure, so no user input leaves German hosting.
+
+# KiWi, the university's LibreChat agents API, serves the chat model. Its
+# "model" is an agent id; the agent pins the underlying model and its
+# reasoning behaviour server-side.
+_KIWI_URL = "https://kiwi-secure.uni-osnabrueck.de/api/agents/v1"
+
+# Two agents rather than one, because KiWi ignores the per-request reasoning
+# switch: whether a call reasons is decided by which agent it goes to. The
+# reasoning agent spends thousands of hidden tokens before answering, which
+# pays off for SPARQL generation and is pure latency for a summary.
+_KIWI_REASONING_AGENT = "agent_NpAmRwLMlX5QBrUiqcwjM"
+_KIWI_PLAIN_AGENT = "agent_7qE8YPFNPQ9KQQInK9FNc"
+
+# The university's LiteLLM gateway serves the embedding model. bge-m3 returns
+# unit-norm 1024-d vectors, so the FAISS L2 index ranks exactly as cosine
+# similarity would.
 _GATEWAY_URL = "https://litellm.uni-osnabrueck.de/v1"
-
-# Chat model served by the gateway, for both generation and summaries.
-_DEFAULT_MODEL = "Qwen/Qwen3.5-122B-A10B-FP8"
-
-# Embedding model served by the gateway. It returns unit-norm 1024-d vectors,
-# so the FAISS L2 index ranks exactly as cosine similarity would.
 _EMBEDDING_MODEL = "bge-m3"
 
 
@@ -40,18 +49,24 @@ def _env(name: str, default: str) -> str:
 class AppConfig:
     """Immutable, process-wide configuration."""
 
-    # --- Chat model (any OpenAI-compatible Chat Completions endpoint) ------
-    # Defaults to Osnabrück University's LiteLLM gateway. To use OpenAI instead,
-    # set the base URL to https://api.openai.com/v1, the models to e.g.
-    # gpt-5.4-mini, and OEKG_LLM_NO_THINK=0 (OpenAI rejects unknown parameters).
-    llm_base_url: str = field(default_factory=lambda: _env("OEKG_LLM_BASE_URL", _GATEWAY_URL))
-    sparql_model: str = field(default_factory=lambda: _env("OEKG_SPARQL_MODEL", _DEFAULT_MODEL))
-    summary_model: str = field(default_factory=lambda: _env("OEKG_SUMMARY_MODEL", _DEFAULT_MODEL))
-    # Ask the model to skip its reasoning pass for the short tasks (summary and
-    # explanation); SPARQL generation always keeps it. See oekg/llm.py.
+    # --- Chat model (KiWi, an OpenAI-compatible Chat Completions endpoint) -
+    # The model name is a KiWi agent id, not a model id. Reasoning is bound to
+    # the agent, so the split below is what keeps summaries fast.
+    llm_base_url: str = field(default_factory=lambda: _env("OEKG_LLM_BASE_URL", _KIWI_URL))
+    sparql_model: str = field(
+        default_factory=lambda: _env("OEKG_SPARQL_MODEL", _KIWI_REASONING_AGENT)
+    )
+    summary_model: str = field(
+        default_factory=lambda: _env("OEKG_SUMMARY_MODEL", _KIWI_PLAIN_AGENT)
+    )
+    # Also ask for the reasoning pass to be skipped on the short tasks. KiWi
+    # ignores this (hence the two agents above), but an endpoint that honours
+    # it -- e.g. the gateway's Qwen -- then needs no second model. See oekg/llm.py.
     no_think_enabled: bool = _env("OEKG_LLM_NO_THINK", "1") not in ("0", "false", "False")
-    # Per-attempt timeout; generation on a shared, self-hosted model can queue.
-    llm_timeout: float = float(_env("OEKG_LLM_TIMEOUT", "120"))
+    # Per-attempt timeout. The reasoning agent was measured at over two minutes
+    # for a single SPARQL query, so this is deliberately generous: a timeout
+    # near the real runtime turns slow answers into failed ones.
+    llm_timeout: float = float(_env("OEKG_LLM_TIMEOUT", "300"))
     # Retries after a timeout or a 429/5xx. The SDK default (2) would let one
     # stalled request block the UI for three full timeouts.
     llm_max_retries: int = int(_env("OEKG_LLM_MAX_RETRIES", "1"))
@@ -60,9 +75,10 @@ class AppConfig:
     # static system prompt is automatic regardless).
     prompt_cache_key: str = field(default_factory=lambda: _env("OEKG_PROMPT_CACHE_KEY", ""))
 
-    # --- Embedding model (same gateway) ---------------------------------
-    # The shipped FAISS index was built with this model on this endpoint.
-    # Changing either requires rebuilding it: `python -m oekg.build_index`.
+    # --- Embedding model (the university's LiteLLM gateway) --------------
+    # A different service from the chat endpoint above. The shipped FAISS index
+    # was built with this model on this endpoint; changing either requires
+    # rebuilding it: `python -m oekg.build_index`.
     embedding_base_url: str = field(
         default_factory=lambda: _env("OEKG_EMBEDDING_BASE_URL", _GATEWAY_URL)
     )
@@ -71,12 +87,11 @@ class AppConfig:
     )
 
     # --- Credentials -----------------------------------------------------
-    # LLM_API_KEY authenticates both endpoints, which share one gateway.
-    # EMBEDDING_API_KEY is only needed when embeddings are served elsewhere.
+    # Chat and embeddings are two separate services, so they need two keys and
+    # neither falls back to the other: sending KiWi's key to the gateway (or
+    # vice versa) would hand one service a credential for another.
     llm_api_key: str | None = field(default_factory=lambda: getenv("LLM_API_KEY"))
-    embedding_api_key: str | None = field(
-        default_factory=lambda: getenv("EMBEDDING_API_KEY") or getenv("LLM_API_KEY")
-    )
+    embedding_api_key: str | None = field(default_factory=lambda: getenv("EMBEDDING_API_KEY"))
     oep_token: str | None = field(default_factory=lambda: getenv("OEP_TOKEN"))
 
     # --- Resource files --------------------------------------------------

@@ -104,17 +104,17 @@ class RagPipeline:
         self._relation_schema: dict[str, dict[str, Any]] | None = None
 
         # Collaborators default to real implementations but can be injected
-        # (e.g. for testing). Both clients are reused across requests. They stay
-        # separate so chat and embeddings remain independently configurable,
-        # even though both default to the same gateway.
+        # (e.g. for testing). Both clients are reused across requests. They are
+        # separate because chat and embeddings are two different services:
+        # KiWi for the chat model, the LiteLLM gateway for the embeddings.
         # With api_key=None the SDK silently falls back to OPENAI_API_KEY and
         # would send that secret to a non-OpenAI endpoint.
         if chat_client is None and not self._config.llm_api_key:
             raise ValueError("LLM_API_KEY is not set; refusing to fall back to OPENAI_API_KEY")
         if embedding_client is None and not self._config.embedding_api_key:
             raise ValueError(
-                "No embedding key is set; refusing to fall back to OPENAI_API_KEY. "
-                "Set LLM_API_KEY, or EMBEDDING_API_KEY for a separate endpoint."
+                "EMBEDDING_API_KEY is not set; refusing to fall back to OPENAI_API_KEY. "
+                "The embedding endpoint is a different service from the chat one."
             )
         self._embedding_client = embedding_client or OpenAI(
             api_key=self._config.embedding_api_key,

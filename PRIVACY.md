@@ -110,23 +110,26 @@ cookie of the web framework is used, which is deleted when your session ends.
 
 ### 3.1 Osnabrück University (language model and embeddings)
 
-To generate a SPARQL query, to summarise a result and to explain a query, your
-question, the last few turns of the current conversation, the relevant retrieved
-ontology excerpts and — where applicable — the retrieved result rows are
-transmitted to the **AI gateway** (`litellm.uni-osnabrueck.de`) operated by
+Two services are involved, both operated by
 
-**Universität Osnabrück**, Neuer Graben 29 / Schloss, 49074 Osnabrück, Germany.
+**Universität Osnabrück**, Neuer Graben 29 / Schloss, 49074 Osnabrück, Germany:
 
-The same gateway also computes the **embedding** of your question — the numeric
-vector used to find the relevant parts of the ontology and to compare a new
-question against the shared question cache (section 2.2). For that purpose only
-the text of your current question is sent.
+- **KiWi** (`kiwi-secure.uni-osnabrueck.de`) runs the **language model**. To
+  generate a SPARQL query, to summarise a result and to explain a query, your
+  question, the last few turns of the current conversation, the relevant
+  retrieved ontology excerpts and — where applicable — the retrieved result
+  rows are transmitted there.
+- The **AI gateway** (`litellm.uni-osnabrueck.de`) computes the **embedding**
+  of your question: the numeric vector used to find the relevant parts of the
+  ontology and to compare a new question against the shared question cache
+  (section 2.2). Only the text of your current question is sent for this.
 
-Both models (Qwen3.5 with 122B parameters for the chat, BGE-M3 for the
-embeddings — openly available models) run on Osnabrück University's own
-infrastructure. Your input is therefore processed **within Germany**, is not
-passed on to any commercial model provider, and is **not stored** on the
-gateway according to its operator.
+Both services are hosted in the **same university computing centre**, and both
+models (Qwen3.5 with 122B parameters for the chat, BGE-M3 for the embeddings —
+openly available models) run on Osnabrück University's own infrastructure. Your
+input is therefore processed **within Germany**, is not passed on to any
+commercial model provider, and is **not stored** by either service according to
+their operator.
 
 ### 3.2 Open Energy Platform (knowledge graph and datasets)
 

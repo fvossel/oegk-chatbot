@@ -64,36 +64,40 @@ pip install -e ".[dev]"
 Copy [`.env.example`](.env.example) to `.env` and fill in your keys (`.env` is gitignored):
 
 ```dotenv
-LLM_API_KEY="YOUR_GATEWAY_API_KEY"
+LLM_API_KEY="YOUR_KIWI_API_KEY"
+EMBEDDING_API_KEY="YOUR_GATEWAY_API_KEY"
 OEP_TOKEN="YOUR_OEP_API_TOKEN"
 ```
 
-Both models run on **Osnabrück University's LiteLLM gateway**
-(`litellm.uni-osnabrueck.de`): **Qwen3.5-122B** for chat and **BGE-M3** for the
-embeddings. One key authenticates both, and no question text reaches a
-commercial model provider. Any OpenAI-compatible endpoint can be used
-instead — e.g. OpenAI itself:
+Everything runs on **Osnabrück University** infrastructure, on two separate
+services, so each needs its own key and neither falls back to the other:
 
-```dotenv
-LLM_API_KEY="YOUR_OPENAI_API_KEY"
-OEKG_LLM_BASE_URL=https://api.openai.com/v1
-OEKG_SPARQL_MODEL=gpt-5.4-mini
-OEKG_SUMMARY_MODEL=gpt-5.4-nano
-OEKG_LLM_NO_THINK=0
-OEKG_EMBEDDING_BASE_URL=https://api.openai.com/v1
-OEKG_EMBEDDING_MODEL=text-embedding-3-large
-```
+| | Service | Model |
+| --- | --- | --- |
+| Chat | KiWi (`kiwi-secure.uni-osnabrueck.de`), a LibreChat **agents** API | Qwen3.5-122B behind an agent id |
+| Embeddings | LiteLLM gateway (`litellm.uni-osnabrueck.de`) | `bge-m3` |
 
-Changing the embedding model or its endpoint **requires rebuilding the vector
-store** (see step 4): query and document vectors must come from the same model.
-A separate `EMBEDDING_API_KEY` can be set when embeddings are served by a
-different provider than the chat model.
+Both are hosted in the same university computing centre. No question text
+reaches a commercial model provider. Any OpenAI-compatible
+endpoint can be configured instead via `OEKG_LLM_BASE_URL` and
+`OEKG_EMBEDDING_BASE_URL`, but changing the embedding model or its endpoint
+**requires rebuilding the vector store** (see step 4): query and document
+vectors must come from the same model.
 
-**Reasoning** is requested only for SPARQL generation, the one step where it
-changes the result. Summaries and explanations run without it, which on the
-default model takes about 1 s instead of 6 s per call. The switch is sent as an
-extra request parameter; endpoints that reject unknown parameters (OpenAI) need
-`OEKG_LLM_NO_THINK=0`.
+**Reasoning** is wanted for SPARQL generation, the one step where it changes
+the result, and is pure latency for summaries and explanations. On KiWi that is
+not a per-request switch — reasoning is a property of the **agent** — so the
+two tasks are pointed at two agents:
+
+| Setting | Default | Behaviour |
+| --- | --- | --- |
+| `OEKG_SPARQL_MODEL` | `agent_NpAmRwLMlX5QBrUiqcwjM` | reasons; thousands of hidden tokens, **over two minutes** per query |
+| `OEKG_SUMMARY_MODEL` | `agent_7qE8YPFNPQ9KQQInK9FNc` | no reasoning; about a second |
+
+Because of that first row, `OEKG_LLM_TIMEOUT` defaults to 300 s. On an endpoint
+that honours the request parameter instead (e.g. the gateway's Qwen), one model
+suffices for both and `OEKG_LLM_NO_THINK=1` does the same job; set it to `0` for
+an endpoint that rejects unknown parameters.
 
 All other settings have sensible defaults and can be overridden via `OEKG_*` environment variables (see the table below or `.env.example`).
 
@@ -133,14 +137,14 @@ All variables are optional except the three credentials. Defaults are shown.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `LLM_API_KEY` | — | **Required.** API key of the gateway (chat *and* embeddings). |
+| `LLM_API_KEY` | — | **Required.** API key of the chat endpoint (KiWi). |
+| `EMBEDDING_API_KEY` | — | **Required.** API key of the embeddings endpoint (gateway). |
 | `OEP_TOKEN` | — | **Required.** OEP API token. |
-| `EMBEDDING_API_KEY` | `LLM_API_KEY` | Only needed if embeddings run elsewhere. |
-| `OEKG_LLM_BASE_URL` | `https://litellm.uni-osnabrueck.de/v1` | OpenAI-compatible Chat Completions endpoint. |
-| `OEKG_SPARQL_MODEL` | `Qwen/Qwen3.5-122B-A10B-FP8` | Model for SPARQL generation (keeps reasoning). |
-| `OEKG_SUMMARY_MODEL` | `Qwen/Qwen3.5-122B-A10B-FP8` | Model for summaries/explanations (reasoning off). |
-| `OEKG_LLM_NO_THINK` | `1` | Skip the reasoning pass for summaries/explanations. |
-| `OEKG_LLM_TIMEOUT` | `120` | Per-attempt timeout for the chat endpoint (seconds). |
+| `OEKG_LLM_BASE_URL` | `https://kiwi-secure.uni-osnabrueck.de/api/agents/v1` | OpenAI-compatible Chat Completions endpoint. |
+| `OEKG_SPARQL_MODEL` | `agent_NpAmRwLMlX5QBrUiqcwjM` | KiWi agent for SPARQL generation (reasons). |
+| `OEKG_SUMMARY_MODEL` | `agent_7qE8YPFNPQ9KQQInK9FNc` | KiWi agent for summaries/explanations (no reasoning). |
+| `OEKG_LLM_NO_THINK` | `1` | Also request no reasoning for the short tasks. KiWi ignores it. |
+| `OEKG_LLM_TIMEOUT` | `300` | Per-attempt timeout for the chat endpoint (seconds). |
 | `OEKG_LLM_MAX_RETRIES` | `1` | Retries after a timeout or 429/5xx from the chat endpoint. |
 | `OEKG_EMBEDDING_BASE_URL` | `https://litellm.uni-osnabrueck.de/v1` | OpenAI-compatible embeddings endpoint. |
 | `OEKG_EMBEDDING_MODEL` | `bge-m3` | Embedding model (must match the FAISS index). |
@@ -206,7 +210,7 @@ automatically re-prompts** everyone for renewed consent.
 
 In short:
 
-- Your questions, relevant context, and parts of the knowledge graph are sent to the university's LiteLLM gateway (Osnabrück University, processed in Germany) — both for the chat model and for the embeddings.
+- Your questions, relevant context, and parts of the knowledge graph are sent to the university's KiWi service (chat) and its LiteLLM gateway (embeddings) — both operated by Osnabrück University and processed in Germany.
 - No user input is transferred outside the EU, and nothing is sent to a commercial model provider.
 - `logs/requests.log` records the **text of every question** (no IP address or user identifier).
 - `query_cache.json` is **shared between all users**; entries are only written on an explicit user action.

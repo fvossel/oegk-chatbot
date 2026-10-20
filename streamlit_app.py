@@ -449,6 +449,7 @@ _missing = [
     name
     for name, value in (
         ("LLM_API_KEY", CONFIG.llm_api_key),
+        ("EMBEDDING_API_KEY", CONFIG.embedding_api_key),
         ("OEP_TOKEN", CONFIG.oep_token),
     )
     if not value

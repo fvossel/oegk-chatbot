@@ -26,19 +26,36 @@ def test_sane_defaults():
     assert cfg.error_log_path.name == "errors.log"
 
 
-def test_chat_and_embeddings_default_to_the_same_gateway():
-    # PRIVACY.md section 3.1 claims no user input leaves the university's
-    # infrastructure; that holds only while both endpoints point there.
+def test_chat_and_embeddings_default_to_separate_university_services():
+    # PRIVACY.md section 3.1 names two distinct services and claims both are
+    # operated by the university; that holds only while both hosts point there.
     cfg = AppConfig()
-    assert cfg.llm_base_url == "https://litellm.uni-osnabrueck.de/v1"
-    assert cfg.embedding_base_url == cfg.llm_base_url
+    assert cfg.llm_base_url == "https://kiwi-secure.uni-osnabrueck.de/api/agents/v1"
+    assert cfg.embedding_base_url == "https://litellm.uni-osnabrueck.de/v1"
+    for url in (cfg.llm_base_url, cfg.embedding_base_url):
+        assert url.split("/")[2].endswith("uni-osnabrueck.de")
     assert cfg.embedding_model == "bge-m3"
 
 
-def test_embedding_key_falls_back_to_the_chat_key(monkeypatch):
+def test_sparql_and_summaries_use_different_agents():
+    # KiWi binds reasoning to the agent, not the request, so "reason only for
+    # SPARQL generation" is expressed by this split and nothing else.
+    cfg = AppConfig()
+    assert cfg.sparql_model == "agent_NpAmRwLMlX5QBrUiqcwjM"
+    assert cfg.summary_model == "agent_7qE8YPFNPQ9KQQInK9FNc"
+    assert cfg.sparql_model != cfg.summary_model
+    # The reasoning agent was measured above two minutes for one query, so the
+    # old 120 s timeout would have turned slow answers into failures.
+    assert cfg.llm_timeout >= 300
+
+
+def test_embedding_key_does_not_fall_back_to_the_chat_key(monkeypatch):
+    # A fallback would send KiWi's key to the gateway -- a different service.
+    monkeypatch.setenv("LLM_API_KEY", "kiwi-test-key")
     monkeypatch.delenv("EMBEDDING_API_KEY", raising=False)
-    monkeypatch.setenv("LLM_API_KEY", "shared-gateway-key")
-    assert AppConfig().embedding_api_key == "shared-gateway-key"
-    # An explicit key wins, for embeddings served by a separate endpoint.
-    monkeypatch.setenv("EMBEDDING_API_KEY", "separate-key")
-    assert AppConfig().embedding_api_key == "separate-key"
+    cfg = AppConfig()
+    assert cfg.llm_api_key == "kiwi-test-key"
+    assert cfg.embedding_api_key is None
+
+    monkeypatch.setenv("EMBEDDING_API_KEY", "gateway-test-key")
+    assert AppConfig().embedding_api_key == "gateway-test-key"
