@@ -34,6 +34,7 @@ The Streamlit entry point [`streamlit_app.py`](streamlit_app.py) only wires thin
 | `oekg/cache.py` | Persistent question → SPARQL cache. |
 | `oekg/privacy.py` | Privacy policy loading and consent bookkeeping. |
 | `oekg/logging_setup.py` | Rotating request/error logs. |
+| `oekg/healthcheck.py` | Probe of app, chat, embeddings and SPARQL endpoint; mails on failure. |
 
 ---
 
@@ -178,7 +179,47 @@ All variables are optional except the three credentials. Defaults are shown.
 | `OEKG_PRIVACY_POLICY_PATH` | `PRIVACY.md` | Policy shown in the consent gate. |
 | `OEKG_REQUIRE_CONSENT` | `1` | Require explicit consent before the chatbot can be used. |
 | `OEKG_LOG_DIR` | `logs` | Directory for request/error logs. |
+| `OEKG_HEALTH_MAIL_TO` | _(empty)_ | Recipient of health alerts. Required for mail. |
+| `OEKG_HEALTH_SMTP_HOST` | _(empty)_ | SMTP relay. Required for mail. |
+| `OEKG_HEALTH_SMTP_PORT` | `587` | `587` uses STARTTLS, `465` implicit TLS. |
+| `OEKG_HEALTH_SMTP_STARTTLS` | `1` | Credentials are never sent without TLS. |
+| `OEKG_HEALTH_SMTP_USER` | _(empty)_ | SMTP login; empty means no login. |
+| `HEALTH_SMTP_PASSWORD` | — | SMTP password (a secret, hence no `OEKG_` prefix). |
+| `OEKG_HEALTH_MAIL_FROM` | SMTP user | Sender address. |
+| `OEKG_HEALTH_FAILURES` | `2` | Consecutive failing runs before the first alert. |
+| `OEKG_HEALTH_APP_URL` | `http://127.0.0.1:3030/_stcore/health` | URL the app probe requests. |
 | `OEKG_LOG_LEVEL` | `INFO` | Log level. |
+
+---
+
+## 🩺 Health check
+
+`python -m oekg.healthcheck` probes what a question actually needs: the web app,
+the chat model, the embedding model (including that its vector size still matches
+`vector_store.faiss`) and the OEKG SPARQL endpoint. A page that loads while every
+question fails is the case it exists for.
+
+It mails once when `OEKG_HEALTH_FAILURES` consecutive runs (default 2) have failed
+and once when everything passes again, not on every run. An alert that could not be
+sent is retried on the next run. The chat probe uses the fast summary agent only;
+the reasoning agent can take minutes. A probe on the host cannot report that the
+host itself is down, which needs an external check on the public URL.
+
+Configure it in `.env` (see `.env.example`), then verify the mail path:
+
+```bash
+python -m oekg.healthcheck --test-mail
+```
+
+To run it every five minutes under systemd, install the units from `deploy/`:
+
+```bash
+sudo cp deploy/oekg-healthcheck.* /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now oekg-healthcheck.timer
+```
+
+Exit codes: `0` all checks passed, `1` a check failed, `2` an alert could not be sent.
 
 ---
 

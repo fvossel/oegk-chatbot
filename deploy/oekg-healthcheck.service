@@ -1,0 +1,24 @@
+[Unit]
+Description=Ask OEKG health check (mails on failure)
+Documentation=https://github.com/fvossel/oegk-chatbot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=felix
+Group=felix
+WorkingDirectory=/home/felix/oegk-chatbot
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/felix/oegk-chatbot/.venv/bin/python -m oekg.healthcheck
+# Exit 1 means "a check failed", which the program has already handled by mailing.
+# Only exit 2 (an alert that could not be sent) should show up as a failed unit.
+SuccessExitStatus=1
+# A hung dependency must not stack runs up behind each other.
+TimeoutStartSec=300
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectControlGroups=true

@@ -164,6 +164,33 @@ class AppConfig:
     semantic_cache_enabled: bool = _env("OEKG_SEMANTIC_CACHE", "1") not in ("0", "false", "False")
     semantic_cache_threshold: float = float(_env("OEKG_SEMANTIC_CACHE_THRESHOLD", "0.92"))
 
+    # --- Health check (python -m oekg.healthcheck) -----------------------
+    # No recipient or relay is baked in: set them in the environment of the
+    # host that runs the check. All lazy, see the note above the class.
+    health_app_url: str = field(
+        default_factory=lambda: _env(
+            "OEKG_HEALTH_APP_URL", "http://127.0.0.1:3030/_stcore/health"
+        )
+    )
+    # Consecutive failing runs before the first alert mail, so one blip is not one mail.
+    health_failure_threshold: int = field(
+        default_factory=lambda: int(_env("OEKG_HEALTH_FAILURES", "2"))
+    )
+    health_mail_to: str = field(default_factory=lambda: _env("OEKG_HEALTH_MAIL_TO", ""))
+    health_mail_from: str = field(default_factory=lambda: _env("OEKG_HEALTH_MAIL_FROM", ""))
+    health_smtp_host: str = field(default_factory=lambda: _env("OEKG_HEALTH_SMTP_HOST", ""))
+    health_smtp_port: int = field(
+        default_factory=lambda: int(_env("OEKG_HEALTH_SMTP_PORT", "587"))
+    )
+    health_smtp_starttls: bool = field(
+        default_factory=lambda: _env("OEKG_HEALTH_SMTP_STARTTLS", "1")
+        not in ("0", "false", "False")
+    )
+    health_smtp_user: str = field(default_factory=lambda: _env("OEKG_HEALTH_SMTP_USER", ""))
+    health_smtp_password: str | None = field(
+        default_factory=lambda: getenv("HEALTH_SMTP_PASSWORD")
+    )
+
     # --- Logging ---------------------------------------------------------
     log_dir: Path = Path(_env("OEKG_LOG_DIR", str(ROOT_DIR / "logs")))
     log_level: str = _env("OEKG_LOG_LEVEL", "INFO")
@@ -175,6 +202,10 @@ class AppConfig:
     @property
     def error_log_path(self) -> Path:
         return self.log_dir / "errors.log"
+
+    @property
+    def health_state_path(self) -> Path:
+        return self.log_dir / "health_state.json"
 
 
 @lru_cache(maxsize=1)
