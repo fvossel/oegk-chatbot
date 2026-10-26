@@ -9,7 +9,7 @@ license = { text = "Apache-2.0" }
 # Direct (top-level) dependencies. The pinned transitive closure used for
 # reproducible installs lives in requirements.txt.
 dependencies = [
-    "streamlit>=1.54",
+    "streamlit>=1.66",
     "openai>=1.97",
     "faiss-cpu>=1.11",
     "numpy>=2.0",
