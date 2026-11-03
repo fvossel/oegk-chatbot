@@ -9,6 +9,8 @@ Ask natural-language questions about OEKG data and get answers backed by SPARQL 
 ## ✨ Features
 
 - **Natural language → SPARQL** over the OEKG, using retrieval-augmented generation against the ontology.
+- **Asks which term you mean** — when a question fits several ontology terms ("How many scenarios?" fits both a scenario factsheet and a scenario bundle, with different counts), the chat offers those terms with their OEO/OEKG definitions and continues with your pick instead of guessing. It only asks when the answer would differ, never for a clear question, and stops asking for the session once you choose "decide for me".
+- **Answers in your language** — the summary, the query explanation, the bot's own replies and the "which term?" question are written in the language you asked in (English for English, German for German, and likewise for others). The language is judged by the model, not by code; ontology definitions, button labels of the interface and error messages stay English.
 - **Self-correcting queries** — if the endpoint rejects a query, the error is fed back to the model for a repair attempt; generated identifiers are also checked against the known vocabulary before execution.
 - **Interactive results** — answers come with a real, sortable table plus **CSV/Excel download** and clickable links to the underlying OEP resources.
 - **Inspectable SPARQL** — the generated query lives in a collapsible panel with copy-to-clipboard and an on-demand plain-language explanation.
@@ -28,6 +30,7 @@ The Streamlit entry point [`streamlit_app.py`](streamlit_app.py) only wires thin
 | `oekg/retrieval.py` | Embeds a query and returns the top-k ontology documents. |
 | `oekg/build_index.py` | Manual rebuild of `vector_store.faiss` + `ids.json`. |
 | `oekg/llm.py` | SPARQL generation, summarisation and explanation via any OpenAI-compatible Chat Completions endpoint. |
+| `oekg/disambiguation.py` | Offers the matching ontology terms when a question is ambiguous. |
 | `oekg/validation.py` | Offline check of generated URIs against the OEKG vocabulary. |
 | `oekg/oep.py` | OEP SPARQL execution, URI resolution and scenario bundling. |
 | `oekg/pipeline.py` | End-to-end orchestration (`RagPipeline`). |
@@ -154,6 +157,9 @@ All variables are optional except the three credentials. Defaults are shown.
 | `OEKG_MAX_SUMMARY_CHARS` | `10000` | Max result size (chars) that is summarised. |
 | `OEKG_MAX_INPUT_CHARS` | `2000` | Max length of a user question. |
 | `OEKG_PROMPT_CACHE_KEY` | _(empty)_ | Optional prompt-cache routing key. |
+| `OEKG_DISAMBIGUATION` | `1` | Ask which ontology term is meant when a question fits several. One extra short model call per fresh question. |
+| `OEKG_DISAMBIGUATION_CANDIDATES` | `6` | Best-matching classes the model weighs against the question. |
+| `OEKG_DISAMBIGUATION_MAX_OPTIONS` | `4` | Upper bound on the choices offered. |
 | `OEKG_URI_VALIDATION` | `1` | Validate generated URIs against the vocabulary. |
 | `OEKG_NORMALISE_OUTPUT` | `1` | Strip stray markdown fences/labels from model output. |
 | `OEKG_SYNTAX_VALIDATION` | `1` | Local rdflib syntax pre-flight (advisory). |

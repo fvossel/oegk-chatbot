@@ -18,6 +18,7 @@ import streamlit as st
 
 from oekg.cache import QueryCache
 from oekg.config import get_config
+from oekg.disambiguation import Option, clarified_question
 from oekg.logging_setup import configure_logging, get_request_logger
 from oekg.pipeline import RagPipeline
 from oekg.privacy import (
@@ -42,6 +43,8 @@ consent_logger = get_request_logger()
 
 APP_TITLE = "Ask OEKG"
 _XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+_CLARIFY_ASK = "Your question could mean several things. Which one do you mean?"
+_CLARIFY_SKIP = "None of these / decide for me"
 _CORRECTION_NOTE = "ℹ️ The query was automatically refined before returning these results."
 
 
@@ -122,7 +125,9 @@ def render_results_table(df: pd.DataFrame, turn_id: str) -> None:
         logger.warning("Excel export unavailable", exc_info=True)
 
 
-def render_sparql_panel(full_query: str, turn_id: str, pipeline: RagPipeline) -> None:
+def render_sparql_panel(
+    full_query: str, turn_id: str, pipeline: RagPipeline, question: str = ""
+) -> None:
     """Show the generated SPARQL in a collapsible, copyable panel with an explainer."""
     with st.expander("🔍 Show the SPARQL query"):
         st.code(full_query, language="sparql")
@@ -130,7 +135,8 @@ def render_sparql_panel(full_query: str, turn_id: str, pipeline: RagPipeline) ->
         if st.button("🧠 Explain this query in plain language", key=f"explain_{turn_id}"):
             with st.spinner("Explaining query..."):
                 st.session_state[explanation_key] = (
-                    pipeline.explain_sparql(full_query) or "_No explanation available._"
+                    pipeline.explain_sparql(full_query, question=question)
+                    or "_No explanation available._"
                 )
         if st.session_state.get(explanation_key):
             st.markdown(st.session_state[explanation_key])
@@ -229,7 +235,9 @@ def render_assistant_extras(turn: dict, pipeline: RagPipeline) -> None:
     if turn.get("corrected"):
         st.caption(_CORRECTION_NOTE)
     if turn.get("full_query"):
-        render_sparql_panel(turn["full_query"], turn["turn_id"], pipeline)
+        render_sparql_panel(
+            turn["full_query"], turn["turn_id"], pipeline, turn.get("question", "")
+        )
     df = turn.get("results_df")
     if df is not None:
         render_results_table(df, turn["turn_id"])
@@ -248,15 +256,22 @@ def handle_question(
     pipeline: RagPipeline,
     prefer_cache: bool = True,
     forced_sparql: str | None = None,
+    clarification: Option | None = None,
+    skip_clarification: bool = False,
 ) -> None:
     """Run a question through the pipeline and update the chat history/UI."""
     # Drop any stale "cache this question" offer from a previous turn.
     st.session_state.pop("last_cacheable", None)
 
+    # Once the user has picked a term it is part of the question, so the chat,
+    # the model's context and the cache entry all say which reading was meant.
+    shown = clarified_question(question, clarification) if clarification else question
+    # Someone who answered "decide for me" once does not want to be asked again.
+    skip_clarification = skip_clarification or st.session_state.get("no_clarification", False)
     history = [(t["role"], t["content"]) for t in st.session_state.chat_history]
-    st.session_state.chat_history.append({"role": "user", "content": question})
+    st.session_state.chat_history.append({"role": "user", "content": shown})
     with st.chat_message("user"):
-        st.markdown(question)
+        st.markdown(shown)
 
     result = pipeline.answer(
         question,
@@ -265,7 +280,19 @@ def handle_question(
         prefer_cache=prefer_cache,
         stream=True,
         forced_sparql=forced_sparql,
+        clarification=clarification,
+        skip_clarification=skip_clarification,
     )
+
+    if result.clarification:
+        # Not an answer yet: take the question back out of the history and ask
+        # which term is meant. The pending block below re-renders it.
+        st.session_state.chat_history.pop()
+        st.session_state.clarify_pending = {
+            "question": question,
+            "choice": result.clarification,
+        }
+        st.rerun()
 
     turn_id = uuid.uuid4().hex[:12]
     with st.chat_message("assistant"):
@@ -277,6 +304,7 @@ def handle_question(
         turn = {
             "role": "assistant",
             "content": content,
+            "question": shown,
             "full_query": result.full_query,
             "sparql": result.sparql,
             "results_df": result.results_df,
@@ -290,7 +318,7 @@ def handle_question(
     # Remember the latest query-backed turn so the user can choose to cache it.
     # (Bot-information replies and cache hits have nothing new to save.)
     if result.sparql and not result.is_bot_message and not result.cache_hit:
-        st.session_state.last_cacheable = {"question": question, "sparql": result.sparql}
+        st.session_state.last_cacheable = {"question": shown, "sparql": result.sparql}
 
     trim_history()
 
@@ -360,6 +388,8 @@ def render_privacy_sidebar() -> None:
         st.session_state.pop(CONSENT_STATE_KEY, None)
         st.session_state.chat_history = []
         st.session_state.pop("semantic_pending", None)
+        st.session_state.pop("clarify_pending", None)
+        st.session_state.pop("no_clarification", None)
         st.session_state.pop("last_cacheable", None)
         consent_logger.info(
             "consent | action=withdrawn | policy_version=%s", record.get("version")
@@ -529,24 +559,61 @@ try:
     # A pending semantic-cache suggestion takes priority: ask the user to confirm.
     semantic = st.session_state.get("semantic_pending")
     if semantic:
-        with st.chat_message("user"):
-            st.markdown(semantic["question"])
-        with st.chat_message("assistant"):
-            st.info(
-                f"I don't have an exact saved answer for this, but a similar saved "
-                f"question exists:\n\n> **{semantic['match_question']}**\n\n"
-                f"(similarity {semantic['similarity']:.0%}). Use its saved query, or "
-                "generate a fresh answer?"
-            )
-            use_col, fresh_col = st.columns(2)
-            use_saved = use_col.button("Use the saved query", use_container_width=True)
-            generate_fresh = fresh_col.button("Generate a fresh answer", use_container_width=True)
+        # The dialog lives in a placeholder so it can be removed the moment the
+        # user answers it; otherwise it stays on screen, clickable, above the answer.
+        semantic_slot = st.empty()
+        with semantic_slot.container():
+            with st.chat_message("user"):
+                st.markdown(semantic["question"])
+            with st.chat_message("assistant"):
+                st.info(
+                    f"I don't have an exact saved answer for this, but a similar saved "
+                    f"question exists:\n\n> **{semantic['match_question']}**\n\n"
+                    f"(similarity {semantic['similarity']:.0%}). Use its saved query, or "
+                    "generate a fresh answer?"
+                )
+                use_col, fresh_col = st.columns(2)
+                use_saved = use_col.button("Use the saved query", use_container_width=True)
+                generate_fresh = fresh_col.button(
+                    "Generate a fresh answer", use_container_width=True
+                )
+        if use_saved or generate_fresh:
+            semantic_slot.empty()
         if use_saved:
             st.session_state.pop("semantic_pending", None)
             handle_question(semantic["question"], pipeline, forced_sparql=semantic["sparql"])
         elif generate_fresh:
             st.session_state.pop("semantic_pending", None)
             handle_question(semantic["question"], pipeline, prefer_cache=False)
+
+    # The question could mean several ontology terms: let the user pick one.
+    clarify = st.session_state.get("clarify_pending")
+    if clarify:
+        clarify_slot = st.empty()
+        picked: Option | None = None
+        with clarify_slot.container():
+            with st.chat_message("user"):
+                st.markdown(clarify["question"])
+            with st.chat_message("assistant"):
+                st.markdown(clarify["choice"].ask or _CLARIFY_ASK)
+                for index, option in enumerate(clarify["choice"].options):
+                    if st.button(
+                        option.label, key=f"clarify_{index}", use_container_width=True
+                    ):
+                        picked = option
+                    st.caption(option.definition)
+                skipped = st.button(
+                    clarify["choice"].skip or _CLARIFY_SKIP, key="clarify_skip"
+                )
+        if picked is not None or skipped:
+            clarify_slot.empty()
+        if picked is not None:
+            st.session_state.pop("clarify_pending", None)
+            handle_question(clarify["question"], pipeline, clarification=picked)
+        elif skipped:
+            st.session_state.pop("clarify_pending", None)
+            st.session_state.no_clarification = True
+            handle_question(clarify["question"], pipeline, skip_clarification=True)
 
     # A cached question selected in the sidebar takes priority this run.
     pending = st.session_state.pop("pending_question", None)

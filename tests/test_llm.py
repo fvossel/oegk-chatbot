@@ -230,6 +230,23 @@ def test_explain_sparql_without_labels_sends_only_the_query():
     assert _calls(client)[0]["messages"][1]["content"] == "SELECT 1"
 
 
+def test_explain_sparql_gets_the_question_so_it_can_answer_in_its_language():
+    client, llm = _llm()
+    llm.explain_sparql("SELECT 1", question="Wie viele Bundles gibt es?")
+    system, user = (m["content"] for m in _calls(client)[0]["messages"])
+    assert user.startswith("The user's question: Wie viele Bundles gibt es?")
+    assert user.endswith("SELECT 1")
+    assert "English for an English question" in system
+
+
+def test_every_prompt_that_writes_for_the_reader_carries_the_language_rule():
+    # Nothing detects the language in code: the rule lives in these prompts, so
+    # losing it from one of them would silently bring back English-only answers.
+    cfg = get_config()
+    for path in (cfg.summary_prompt_path, cfg.sparql_prompt_path):
+        assert "English for an English question" in path.read_text(encoding="utf-8"), path.name
+
+
 def test_explain_prompt_forbids_guessing_identifier_meanings():
     client, llm = _llm()
     llm.explain_sparql("SELECT 1")

@@ -23,6 +23,14 @@ from pandas import DataFrame
 from oekg.cache import CacheEntry, QueryCache
 from oekg.config import AppConfig, get_config
 from oekg.dataapi import OEPDataClient
+from oekg.disambiguation import (
+    Clarification,
+    Option,
+    candidate_options,
+    clarification_hint,
+    clarified_question,
+    names_a_term,
+)
 from oekg.grounding import ground_question
 from oekg.llm import LLMClient
 from oekg.logging_setup import get_request_logger
@@ -77,6 +85,9 @@ class PipelineResult:
     corrected: bool = False
     # Transient: a lazy summary stream for the UI to render; never stored.
     summary_stream: Iterator[str] | None = None
+    # Set instead of an answer when the question could mean several ontology
+    # terms: the UI offers these, then calls answer() again with the choice.
+    clarification: Clarification | None = None
 
 
 class RagPipeline:
@@ -281,6 +292,18 @@ class RagPipeline:
             logger.exception("entity grounding failed")
             return ""
 
+    def _ambiguous_terms(
+        self, question: str, dialogue: str, top_k: list, status: StatusReporter
+    ) -> Clarification | None:
+        """The choice to ask the user about, or ``None`` to just answer."""
+        if not self._config.disambiguation_enabled:
+            return None
+        candidates = candidate_options(top_k, self._config.disambiguation_candidates)
+        if names_a_term(question, candidates):
+            return None  # the question already says which term it means
+        with status("Checking what you mean..."):
+            return self._llm.find_ambiguity(dialogue, candidates)
+
     def _on_empty(self, dialogue: str, top_k: list, grounding: str) -> Callable[[str], str]:
         """Build the empty-result retry callback, enriched with near-miss labels."""
 
@@ -307,12 +330,14 @@ class RagPipeline:
         return callback
 
     # -- public API -------------------------------------------------------
-    def explain_sparql(self, query: str) -> str:
+    def explain_sparql(self, query: str, question: str = "") -> str:
         """Return a plain-language explanation of a SPARQL query (best effort)."""
         if self._label_index is None:
             self._label_index = build_label_index(self._resources)
         return self._llm.explain_sparql(
-            query, term_labels=query_term_labels(query, self._label_index)
+            query,
+            term_labels=query_term_labels(query, self._label_index),
+            question=question,
         )
 
     def embed(self, text: str) -> list[float]:
@@ -366,8 +391,20 @@ class RagPipeline:
         prefer_cache: bool = True,
         stream: bool = False,
         forced_sparql: str | None = None,
+        clarification: Option | None = None,
+        skip_clarification: bool = False,
     ) -> PipelineResult:
-        """Answer ``question`` and return a :class:`PipelineResult`."""
+        """Answer ``question`` and return a :class:`PipelineResult`.
+
+        A fresh question that could mean several ontology terms comes back as a
+        result carrying ``clarification`` instead of an answer. Call again with
+        the user's pick as ``clarification``, or ``skip_clarification=True`` to
+        let the model decide.
+        """
+        if clarification is not None:
+            # From here on the question carries the choice: the model sees it,
+            # and the cache and the request log key on it.
+            question = clarified_question(question, clarification)
         status = status or _null_status
         history = list(history)
         started = time.perf_counter()
@@ -394,9 +431,25 @@ class RagPipeline:
             cache_hit = False
             with status("Retrieving context information..."):
                 top_k = self._retriever.top_k(question)
+            if clarification is None and not skip_clarification:
+                choice = self._ambiguous_terms(question, dialogue, top_k, status)
+                if choice:
+                    return self._finish(
+                        PipelineResult(
+                            answer="",
+                            cache_hit=False,
+                            is_bot_message=True,
+                            row_count=0,
+                            duration_s=time.perf_counter() - started,
+                            clarification=choice,
+                        ),
+                        question,
+                    )
             if self._config.entity_grounding_enabled:
                 with status("Grounding entity names..."):
                     grounding = self._ground(question)
+            if clarification is not None:
+                grounding = "\n\n".join(part for part in (grounding, clarification_hint(clarification)) if part)
             try:
                 with status("Generating SPARQL query..."):
                     sparql_query = self._gen(dialogue, top_k, grounding)

@@ -143,6 +143,16 @@ class AppConfig:
     near_miss_limit: int = int(_env("OEKG_NEAR_MISS_LIMIT", "8"))
     near_miss_min_token_len: int = int(_env("OEKG_NEAR_MISS_MIN_TOKEN", "4"))
 
+    # --- Disambiguation ---------------------------------------------------
+    # When a question could mean several ontology terms, ask which one (shown
+    # with its definition) instead of silently guessing. One extra short model
+    # call per fresh question.
+    disambiguation_enabled: bool = _env("OEKG_DISAMBIGUATION", "1") not in ("0", "false", "False")
+    # How many of the best-matching classes the model weighs against the question.
+    disambiguation_candidates: int = int(_env("OEKG_DISAMBIGUATION_CANDIDATES", "6"))
+    # Upper bound on the choices offered to the user.
+    disambiguation_max_options: int = int(_env("OEKG_DISAMBIGUATION_MAX_OPTIONS", "4"))
+
     # --- OEP SPARQL endpoint --------------------------------------------
     sparql_endpoint: str = field(
         default_factory=lambda: _env(

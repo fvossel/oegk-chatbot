@@ -45,9 +45,42 @@ from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
 
 from oekg.config import AppConfig, get_config
+from oekg.disambiguation import Clarification, Option, build_user_prompt, parse_clarification
 from oekg.resources import Resources
 
 logger = logging.getLogger(__name__)
+
+# The plain KiWi agent answers in German unless told otherwise, so the rule names
+# the English case as well as the German one instead of leaving it implied.
+_LANGUAGE_RULE = (
+    "the language the user wrote in (English for an English question, German for a "
+    "German question, and likewise for any other language)"
+)
+
+_AMBIGUITY_PROMPT = (
+    "You check whether a question about the Open Energy Knowledge Graph is ambiguous "
+    "between several ontology terms. You get the conversation and numbered candidate "
+    "terms with their definitions.\n\n"
+    "The question IS ambiguous only if it could refer to two or more candidates AND the "
+    "answer would materially differ depending on which one is meant (different counts, "
+    "different lists).\n"
+    "It is NOT ambiguous if: it names or describes one candidate unmistakably; the "
+    "conversation already settled which term is meant; only one candidate fits; it is "
+    "not a data question (a greeting, thanks, a question about the bot or about the "
+    "knowledge graph as a whole rather than one kind of thing); or the "
+    "candidates merely share a topic without being alternatives for the same question.\n"
+    "A candidate whose label is the question's key noun (or its plural, or a translation "
+    "of it) is the one meant; terms that are merely related to it are not alternatives.\n"
+    "Asking costs the user a click and a needless question is an annoyance, so when you "
+    "are unsure whether the question is ambiguous, answer {\"ambiguous\": false}.\n\n"
+    "Reply with JSON only, no other text: {\"ambiguous\": false} or "
+    "{\"ambiguous\": true, \"options\": [\"C1\", \"C3\"], \"language\": \"...\", "
+    "\"ask\": \"...\", \"skip\": \"...\"} naming the 2-4 candidates that are the real "
+    "alternatives. \"language\" is the language of the user's last question, named in "
+    "English; \"ask\" is one short sentence asking the user which of the options they "
+    "mean and \"skip\" is a 2-5 word button label meaning \"none of these, you decide\"; "
+    "write both in " + _LANGUAGE_RULE + ", i.e. in the language you named."
+)
 
 _EXPLAIN_PROMPT = (
     "You explain SPARQL queries in plain language for an energy researcher who "
@@ -55,7 +88,8 @@ _EXPLAIN_PROMPT = (
     "retrieves and the main conditions it applies. Do not repeat the query and "
     "do not include any code. Ontology identifiers such as oeo:OEO_00020227 are "
     "opaque: refer to them only by the labels listed with the query, and never "
-    "guess what an identifier without a listed label means."
+    "guess what an identifier without a listed label means. If the user's "
+    "question is given, write in " + _LANGUAGE_RULE + "; otherwise write English."
 )
 
 # Reasoning models (e.g. Qwen) may emit their chain of thought inline when the
@@ -251,7 +285,33 @@ class LLMClient:
         except Exception:  # noqa: BLE001 - summary is optional
             logger.exception("Streaming summarisation failed")
 
-    def explain_sparql(self, query: str, term_labels: dict[str, str] | None = None) -> str:
+    def find_ambiguity(
+        self, dialogue: str, candidates: list[Option]
+    ) -> Clarification | None:
+        """The choice to put to the user, or ``None`` when the question is clear.
+
+        Best effort: a failure here must never stop a question from being
+        answered, so any error means "not ambiguous".
+        """
+        if len(candidates) < 2:
+            return None
+        try:
+            reply = self._complete(
+                self._config.summary_model,
+                _AMBIGUITY_PROMPT,
+                build_user_prompt(dialogue, candidates),
+                thinking=False,
+            )
+        except Exception:  # noqa: BLE001 - asking is optional
+            logger.exception("ambiguity check failed")
+            return None
+        return parse_clarification(
+            reply, candidates, max_options=self._config.disambiguation_max_options
+        )
+
+    def explain_sparql(
+        self, query: str, term_labels: dict[str, str] | None = None, question: str = ""
+    ) -> str:
         """Explain a SPARQL query in plain language (best effort).
 
         ``term_labels`` maps the query's ontology identifiers to their labels.
@@ -259,6 +319,8 @@ class LLMClient:
         stands for -- and some models guess confidently and wrongly.
         """
         user_prompt = query
+        if question:
+            user_prompt = f"The user's question: {question}\n\n" + user_prompt
         if term_labels:
             user_prompt += "\n\nLabels of the ontology identifiers used in this query:\n" + "\n".join(
                 f"- {term}: {label}" for term, label in term_labels.items()

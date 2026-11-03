@@ -4,6 +4,7 @@ import pandas as pd
 
 from oekg.cache import CacheEntry
 from oekg.config import get_config
+from oekg.disambiguation import Clarification, Option
 from oekg.oep import _EMPTY_RESULT, ExecutionResult
 from oekg.pipeline import GENERATION_ERROR_MESSAGE, RagPipeline
 from oekg.resources import Resources
@@ -24,8 +25,10 @@ class FakeCache:
     def __init__(self, entry=None):
         self._entry = entry
         self.hits = []
+        self.looked_up = []
 
     def get(self, question):
+        self.looked_up.append(question)
         return self._entry
 
     def record_hit(self, question):
@@ -33,8 +36,11 @@ class FakeCache:
 
 
 class FakeRetriever:
+    def __init__(self, documents=None):
+        self.documents = documents or []
+
     def top_k(self, query, k=None):
-        return []
+        return list(self.documents)
 
 
 class FakeLLM:
@@ -45,6 +51,9 @@ class FakeLLM:
         self.generate_calls = 0
         self.last_prompt = None
         self.last_grounding = None
+        # What find_ambiguity() returns; the real client returns None for a clear question.
+        self.ambiguity = None
+        self.ambiguity_calls = []
 
     def generate_sparql(self, query, documents, grounding=None):
         self.generate_calls += 1
@@ -60,9 +69,14 @@ class FakeLLM:
         self.summarised = (sparql_results, nl_query)
         return "A short summary."
 
-    def explain_sparql(self, query, term_labels=None):
+    def explain_sparql(self, query, term_labels=None, question=""):
         self.explained = (query, term_labels)
+        self.explained_question = question
         return "explanation"
+
+    def find_ambiguity(self, dialogue, candidates):
+        self.ambiguity_calls.append((dialogue, list(candidates)))
+        return self.ambiguity
 
 
 class FakeOEP:
@@ -96,14 +110,14 @@ class FakeOEP:
         return list(self.near_miss)
 
 
-def _build(cache, llm, oep, config=None, resources=None):
+def _build(cache, llm, oep, config=None, resources=None, retriever=None):
     return RagPipeline(
         resources or _resources(),
         cache,
         config or get_config(),
         embedding_client=object(),
         chat_client=object(),
-        retriever=FakeRetriever(),
+        retriever=retriever or FakeRetriever(),
         llm=llm,
         oep=oep,
     )
@@ -346,6 +360,13 @@ def test_explain_sparql_passes_labels_of_the_terms_used_in_the_query():
     assert llm.explained[1] == {"oeo:OEO_00020227": "scenario bundle"}
 
 
+def test_explain_sparql_hands_the_question_to_the_model():
+    llm = FakeLLM()
+    pipeline = _build(FakeCache(), llm, FakeOEP(pd.DataFrame()))
+    pipeline.explain_sparql("SELECT 1", question="Wie viele Bundles gibt es?")
+    assert llm.explained_question == "Wie viele Bundles gibt es?"
+
+
 def test_summary_input_states_the_row_count():
     # The summary runs with the model's reasoning off, so it must not have to count.
     df = pd.DataFrame([{"a": i} for i in range(3)])
@@ -380,3 +401,104 @@ def test_missing_embedding_key_never_falls_back_to_the_openai_key(monkeypatch):
     cfg = replace(get_config(), embedding_api_key=None)
     with pytest.raises(ValueError, match="EMBEDDING_API_KEY"):
         RagPipeline(_resources(), FakeCache(), cfg, chat_client=object())
+
+
+# -- disambiguation ------------------------------------------------------------
+
+BUNDLE = Option("oeo:OEO_00000368", "scenario bundle", "A collection of scenarios.")
+FACTSHEET = Option("oeo:OEO_00000365", "scenario factsheet", "Describes a single scenario.")
+CLASS_DOCS = [
+    {"class": BUNDLE.uri, "label": BUNDLE.label, "description": BUNDLE.definition},
+    {"class": FACTSHEET.uri, "label": FACTSHEET.label, "description": FACTSHEET.definition},
+    {"uri": "oeo:has_part", "label": "has part", "description": "a relation"},
+]
+
+
+def _ambiguity_pipeline(llm=None, cache=None, config=None):
+    llm = llm or FakeLLM()
+    llm.ambiguity = Clarification((BUNDLE, FACTSHEET), ask="Welchen meinen Sie?")
+    pipeline = _build(
+        cache or FakeCache(), llm, FakeOEP(pd.DataFrame({"n": [1]})),
+        config=config, retriever=FakeRetriever(CLASS_DOCS),
+    )
+    return pipeline, llm
+
+
+def test_an_ambiguous_question_returns_the_options_instead_of_an_answer():
+    pipeline, llm = _ambiguity_pipeline()
+    result = pipeline.answer("How many scenarios are there?")
+    assert result.clarification.options == (BUNDLE, FACTSHEET)
+    assert result.clarification.ask == "Welchen meinen Sie?"  # passed through untouched
+    assert llm.generate_calls == 0  # nothing was generated or run yet
+    assert result.sparql is None and result.answer == ""
+
+
+def test_only_class_definitions_are_offered_not_relations():
+    pipeline, llm = _ambiguity_pipeline()
+    pipeline.answer("How many scenarios are there?")
+    (_dialogue, candidates), = llm.ambiguity_calls
+    assert [c.uri for c in candidates] == [BUNDLE.uri, FACTSHEET.uri]
+
+
+def test_the_chosen_term_travels_into_generation_and_the_question():
+    pipeline, llm = _ambiguity_pipeline()
+    result = pipeline.answer("How many scenarios are there?", clarification=BUNDLE)
+    assert result.clarification is None
+    assert llm.ambiguity_calls == []  # already settled, so not asked again
+    assert llm.generate_calls == 1
+    assert "How many scenarios are there? (scenario bundle)" in llm.last_prompt
+    assert BUNDLE.uri in llm.last_grounding and BUNDLE.definition in llm.last_grounding
+
+
+def test_the_choice_is_part_of_the_cache_key():
+    cache = FakeCache()
+    pipeline, _ = _ambiguity_pipeline(cache=cache)
+    pipeline.answer("How many scenarios are there?", clarification=FACTSHEET)
+    pipeline.answer("How many scenarios are there?", clarification=BUNDLE)
+    # FakeCache.get records nothing; the stored/looked-up key is the clarified text
+    assert clarified_keys(cache) == [
+        "How many scenarios are there? (scenario factsheet)",
+        "How many scenarios are there? (scenario bundle)",
+    ]
+
+
+def clarified_keys(cache):
+    return cache.looked_up
+
+
+def test_skipping_the_question_lets_the_model_decide():
+    pipeline, llm = _ambiguity_pipeline()
+    result = pipeline.answer("How many scenarios are there?", skip_clarification=True)
+    assert result.clarification is None
+    assert llm.ambiguity_calls == [] and llm.generate_calls == 1
+
+
+def test_a_saved_answer_is_never_second_guessed():
+    entry = CacheEntry("q", "SELECT ?s WHERE { ?s ?p ?o }", "", "", 0)
+    pipeline, llm = _ambiguity_pipeline(cache=FakeCache(entry))
+    result = pipeline.answer("q")
+    assert result.cache_hit and result.clarification is None
+    assert llm.ambiguity_calls == []
+
+
+def test_a_clear_question_is_just_answered():
+    pipeline, llm = _ambiguity_pipeline()
+    llm.ambiguity = None
+    result = pipeline.answer("Which scenario bundle uses MESSAGEix?")
+    assert result.clarification is None and llm.generate_calls == 1
+
+
+def test_disambiguation_can_be_switched_off():
+    cfg = replace(get_config(), disambiguation_enabled=False)
+    pipeline, llm = _ambiguity_pipeline(config=cfg)
+    result = pipeline.answer("How many scenarios are there?")
+    assert result.clarification is None
+    assert llm.ambiguity_calls == []
+
+
+def test_a_question_that_names_its_term_is_answered_without_asking():
+    pipeline, llm = _ambiguity_pipeline()
+    result = pipeline.answer("How many scenario bundles are there?")
+    assert result.clarification is None
+    assert llm.ambiguity_calls == []  # not even the model was consulted
+    assert llm.generate_calls == 1
