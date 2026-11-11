@@ -24,7 +24,7 @@ def _config(tmp_path, **overrides):
         "health_smtp_user": "",
         "health_smtp_password": None,
         "health_failure_threshold": 2,
-        "llm_api_key": "kiwi-secret-key",
+        "llm_api_key": "chat-secret-key",
         "embedding_api_key": "gateway-secret-key",
         "oep_token": "oep-secret-token",
     }
@@ -92,9 +92,9 @@ def test_corrupt_state_file_means_all_was_well(tmp_path):
 
 def test_redaction_removes_configured_secrets_and_key_shaped_text(tmp_path):
     cfg = _config(tmp_path)
-    text = "401 for kiwi-secret-key via oep-secret-token; echoed sk-proj-AbC123****xYz9"
+    text = "401 for chat-secret-key via oep-secret-token; echoed sk-proj-AbC123****xYz9"
     cleaned = hc._redact(text, cfg)
-    for leaked in ("kiwi-secret-key", "oep-secret-token", "AbC123"):
+    for leaked in ("chat-secret-key", "oep-secret-token", "AbC123"):
         assert leaked not in cleaned
     assert "***" in cleaned
 
@@ -103,11 +103,11 @@ def test_a_failing_check_is_reported_without_its_secret(tmp_path):
     cfg = _config(tmp_path)
 
     def broken(_config):
-        raise RuntimeError("rejected key kiwi-secret-key")
+        raise RuntimeError("rejected key chat-secret-key")
 
     (result,) = hc.run_checks(cfg, [("chat", broken)])
     assert not result.ok
-    assert "kiwi-secret-key" not in result.detail
+    assert "chat-secret-key" not in result.detail
     assert result.detail.startswith("RuntimeError")
 
 
@@ -142,6 +142,33 @@ def test_embedding_dimension_must_match_the_vector_store(tmp_path, monkeypatch):
         hc._check_embeddings(cfg)
 
 
+def test_the_chat_probe_asks_for_no_reasoning_like_a_short_task(tmp_path, monkeypatch):
+    # Eight tokens on a reasoning model all go to thinking and come back empty,
+    # which would alert on a healthy endpoint. The probe must send the same
+    # switch the summary does.
+    cfg = _config(tmp_path)
+    seen = {}
+
+    def create(**kwargs):
+        seen.update(kwargs)
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="OK"))])
+
+    class FakeClient:
+        def __init__(self, **_kwargs):
+            self.chat = SimpleNamespace(completions=SimpleNamespace(create=create))
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(hc, "OpenAI", FakeClient)
+    assert hc._check_chat(cfg) == "answered"
+    assert seen["extra_body"] == {"chat_template_kwargs": {"enable_thinking": False}}
+
+    cfg = replace(cfg, no_think_enabled=False)
+    hc._check_chat(cfg)
+    assert seen["extra_body"] is None  # an endpoint that rejects the parameter gets none
+
+
 def test_checks_refuse_to_run_without_their_key(tmp_path):
     # With api_key=None the OpenAI SDK would silently use OPENAI_API_KEY.
     with pytest.raises(RuntimeError, match="LLM_API_KEY"):
@@ -162,7 +189,7 @@ def test_down_mail_names_the_failed_checks_and_nothing_secret(tmp_path):
     assert message["To"] == "ops@example.org"
     body = message.get_content()
     assert "FAIL  embeddings" in body and "ok    chat" in body
-    for secret in ("kiwi-secret-key", "gateway-secret-key", "oep-secret-token"):
+    for secret in ("chat-secret-key", "gateway-secret-key", "oep-secret-token"):
         assert secret not in body and secret not in str(message)
 
 

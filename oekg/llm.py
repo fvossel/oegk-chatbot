@@ -5,27 +5,24 @@ natural-language request, summarising the query results (optionally streamed),
 and explaining a query in plain language -- behind a single client so the model
 names and prompt assembly live in one place.
 
-The endpoint defaults to KiWi, Osnabrück University's LibreChat agents API,
-where the "model" is an agent id and the agent pins the underlying model
-server-side. Any Chat Completions endpoint works instead. Chat Completions is
-used rather than the Responses API because it is the surface OpenAI-compatible
-servers actually implement fully: KiWi accepts Responses requests but never
-streams their text deltas. For the same reason every prompt uses the ``system``
-role -- KiWi rejects ``developer``.
+The endpoint defaults to Osnabrück University's LiteLLM gateway, the same service
+that computes the embeddings. Any Chat Completions endpoint works instead. Chat
+Completions is used rather than the Responses API because it is the surface
+OpenAI-compatible servers actually implement fully, and every prompt uses the
+``system`` role because some of them reject ``developer``.
 
 Reasoning ("thinking") is requested only where it pays for itself. Generating a
 SPARQL query is the one genuinely hard step, so it keeps thinking; summarising a
-result table and explaining a query are short, mechanical tasks where it only
-adds latency. The switch travels in ``extra_body``, so a server that does not
-know it ignores the key. KiWi's agent does exactly that -- it has no reasoning
-pass at all, so on the default endpoint the distinction is inert and every call
-is a plain completion. It takes effect on an endpoint that honours the switch,
-such as the university gateway's Qwen; set ``OEKG_LLM_NO_THINK=0`` for one that
-rejects unknown parameters outright.
+result table, explaining a query and checking a question for ambiguity are short,
+mechanical tasks where it only adds latency (about 0.3 s without, tens of seconds
+with). The switch travels in ``extra_body``, which the gateway's Qwen honours; a
+server that does not know it ignores the key, and an endpoint that bakes
+reasoning into the model id (a LibreChat agents API does) needs one model per
+behaviour instead. Set ``OEKG_LLM_NO_THINK=0`` for a server that rejects unknown
+parameters outright.
 
-``strip_reasoning`` below therefore earns its keep as a safety net rather than
-a necessity: should an endpoint emit ``<think>`` blocks inline instead of in a
-separate field, they never reach the user.
+``strip_reasoning`` below is a safety net: should an endpoint emit ``<think>``
+blocks inline instead of in a separate field, they never reach the user.
 
 The large static system prompt is always the leading message of every request,
 so whatever prefix caching the server implements applies to it; an optional
@@ -50,8 +47,9 @@ from oekg.resources import Resources
 
 logger = logging.getLogger(__name__)
 
-# The plain KiWi agent answers in German unless told otherwise, so the rule names
-# the English case as well as the German one instead of leaving it implied.
+# Left implicit, a model tends to settle on one language (an earlier endpoint
+# always answered in German), so the rule names the English case as well as the
+# German one.
 _LANGUAGE_RULE = (
     "the language the user wrote in (English for an English question, German for a "
     "German question, and likewise for any other language)"
@@ -99,8 +97,23 @@ _EXPLAIN_PROMPT = (
 _REASONING_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
 
 # Turns the reasoning pass off for a single request. This is the vLLM/Qwen chat
-# template switch; a server that does not know it ignores it (KiWi does).
+# template switch; a server that does not know it ignores it.
 _NO_THINK_BODY: dict[str, Any] = {"chat_template_kwargs": {"enable_thinking": False}}
+
+
+def request_body(config: AppConfig, *, thinking: bool) -> dict[str, Any] | None:
+    """The non-standard request body: cache routing and the reasoning switch.
+
+    Shared with the health check so its probe asks for exactly what a short task
+    asks for. A probe that left the model thinking would spend its whole token
+    budget on reasoning and report an empty answer for a healthy endpoint.
+    """
+    body: dict[str, Any] = {}
+    if config.prompt_cache_key:
+        body["prompt_cache_key"] = config.prompt_cache_key
+    if not thinking and config.no_think_enabled:
+        body.update(_NO_THINK_BODY)
+    return body or None
 
 
 _THINK_OPEN = "<think>"
@@ -205,13 +218,7 @@ class LLMClient:
 
     def _extra_body(self, *, thinking: bool) -> dict[str, Any] | None:
         """Build the non-standard request body: cache routing and the think switch."""
-        body: dict[str, Any] = {}
-        key = self._config.prompt_cache_key
-        if key:
-            body["prompt_cache_key"] = key
-        if not thinking and self._config.no_think_enabled:
-            body.update(_NO_THINK_BODY)
-        return body or None
+        return request_body(self._config, thinking=thinking)
 
     @staticmethod
     def cached_tokens(response: Any) -> int:

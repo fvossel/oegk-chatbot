@@ -12,9 +12,9 @@ hundreds: one once ``OEKG_HEALTH_FAILURES`` consecutive runs have failed, one
 when the checks pass again. The state is a small JSON file beside the logs. A
 mail that could not be sent never counts as delivered, so the next run retries.
 
-The chat check calls the fast (summary) agent only. The reasoning agent can need
-minutes for one answer, which is no basis for a probe that runs every five
-minutes; key, quota and endpoint failures hit both agents alike.
+The chat check makes the short-task request (reasoning off, like a summary). A
+reasoning pass can need minutes for one answer, which is no basis for a probe
+that runs every five minutes; key, quota and endpoint failures hit both alike.
 
 This process cannot report that its own host is down. An external probe on the
 public URL covers that case; this one covers everything behind it.
@@ -45,6 +45,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from oekg.config import ROOT_DIR, AppConfig, get_config
+from oekg.llm import request_body
 from oekg.oep import OEPClient
 
 # Per request. A cold gateway was observed to need ~20 s for its first call.
@@ -121,6 +122,9 @@ def _check_chat(config: AppConfig) -> str:
                 {"role": "user", "content": "Say OK."},
             ],
             max_tokens=8,
+            # Same request shape as a summary: with reasoning on, eight tokens
+            # would all go to thinking and a healthy model would look empty.
+            extra_body=request_body(config, thinking=False),
         )
     finally:
         client.close()

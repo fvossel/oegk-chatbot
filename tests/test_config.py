@@ -26,35 +26,33 @@ def test_sane_defaults():
     assert cfg.error_log_path.name == "errors.log"
 
 
-def test_chat_and_embeddings_default_to_separate_university_services():
-    # PRIVACY.md section 3.1 names two distinct services and claims both are
-    # operated by the university; that holds only while both hosts point there.
+def test_chat_and_embeddings_default_to_the_university_gateway():
+    # PRIVACY.md section 3.1 names the gateway as the only service and claims it
+    # is operated by the university; that holds only while the hosts point there.
     cfg = AppConfig()
-    assert cfg.llm_base_url == "https://kiwi-secure.uni-osnabrueck.de/api/agents/v1"
-    assert cfg.embedding_base_url == "https://litellm.uni-osnabrueck.de/v1"
-    for url in (cfg.llm_base_url, cfg.embedding_base_url):
-        assert url.split("/")[2].endswith("uni-osnabrueck.de")
+    assert cfg.llm_base_url == cfg.embedding_base_url == "https://litellm.uni-osnabrueck.de/v1"
+    assert cfg.llm_base_url.split("/")[2].endswith("uni-osnabrueck.de")
     assert cfg.embedding_model == "bge-m3"
 
 
-def test_sparql_and_summaries_use_different_agents():
-    # KiWi binds reasoning to the agent, not the request, so "reason only for
-    # SPARQL generation" is expressed by this split and nothing else.
+def test_one_chat_model_serves_every_task():
+    # Reasoning is a per-request switch on the gateway, so "think only for SPARQL
+    # generation" needs no second model -- but it does need the switch on.
     cfg = AppConfig()
-    assert cfg.sparql_model == "agent_NpAmRwLMlX5QBrUiqcwjM"
-    assert cfg.summary_model == "agent_7qE8YPFNPQ9KQQInK9FNc"
-    assert cfg.sparql_model != cfg.summary_model
-    # The reasoning agent was measured above two minutes for one query, so the
-    # old 120 s timeout would have turned slow answers into failures.
+    assert cfg.sparql_model == cfg.summary_model == "Qwen/Qwen3.5-122B-A10B-FP8"
+    assert cfg.no_think_enabled is True
+    # A reasoning pass over the large SPARQL prompt can take minutes, so a short
+    # timeout would turn slow answers into failures.
     assert cfg.llm_timeout >= 300
 
 
 def test_embedding_key_does_not_fall_back_to_the_chat_key(monkeypatch):
-    # A fallback would send KiWi's key to the gateway -- a different service.
-    monkeypatch.setenv("LLM_API_KEY", "kiwi-test-key")
+    # Chat and embeddings are configured separately; a missing embedding key must
+    # be an error, not a silent reuse of the chat credential.
+    monkeypatch.setenv("LLM_API_KEY", "chat-test-key")
     monkeypatch.delenv("EMBEDDING_API_KEY", raising=False)
     cfg = AppConfig()
-    assert cfg.llm_api_key == "kiwi-test-key"
+    assert cfg.llm_api_key == "chat-test-key"
     assert cfg.embedding_api_key is None
 
     monkeypatch.setenv("EMBEDDING_API_KEY", "gateway-test-key")

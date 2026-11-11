@@ -110,26 +110,27 @@ cookie of the web framework is used, which is deleted when your session ends.
 
 ### 3.1 Osnabrück University (language model and embeddings)
 
-Two services are involved, both operated by
+One service is involved, operated by
 
 **Universität Osnabrück**, Neuer Graben 29 / Schloss, 49074 Osnabrück, Germany:
 
-- **KiWi** (`kiwi-secure.uni-osnabrueck.de`) runs the **language model**. To
-  generate a SPARQL query, to summarise a result and to explain a query, your
+the **AI gateway** (`litellm.uni-osnabrueck.de`). It serves two models:
+
+- The **language model**. To generate a SPARQL query, to summarise a result, to
+  explain a query and to check whether your question is ambiguous, your
   question, the last few turns of the current conversation, the relevant
   retrieved ontology excerpts and — where applicable — the retrieved result
   rows are transmitted there.
-- The **AI gateway** (`litellm.uni-osnabrueck.de`) computes the **embedding**
-  of your question: the numeric vector used to find the relevant parts of the
-  ontology and to compare a new question against the shared question cache
-  (section 2.2). Only the text of your current question is sent for this.
+- The **embedding model**, which computes the numeric vector of your question
+  used to find the relevant parts of the ontology and to compare a new question
+  against the shared question cache (section 2.2). Only the text of your
+  current question is sent for this.
 
-Both services are hosted in the **same university computing centre**, and both
-models (Qwen3.5 with 122B parameters for the chat, BGE-M3 for the embeddings —
-openly available models) run on Osnabrück University's own infrastructure. Your
-input is therefore processed **within Germany**, is not passed on to any
-commercial model provider, and is **not stored** by either service according to
-their operator.
+Both models (Qwen3.5 with 122B parameters for the chat, BGE-M3 for the
+embeddings — openly available models) run on Osnabrück University's own
+infrastructure. Your input is therefore processed **within Germany**, is not
+passed on to any commercial model provider, and is **not stored** by the service
+according to its operator.
 
 ### 3.2 Open Energy Platform (knowledge graph and datasets)
 
