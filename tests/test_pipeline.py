@@ -516,8 +516,8 @@ def test_choosing_all_options_asks_for_each_of_them():
 def test_an_everyday_name_is_resolved_without_asking():
     # The real classes.json says "scenario" is what users call a scenario factsheet.
     docs = [
-        {"class": BUNDLE.uri, "label": BUNDLE.label, "description": "b", "aliases": ["bundle", "study"]},
-        {"class": FACTSHEET.uri, "label": FACTSHEET.label, "description": "f", "aliases": ["scenario"]},
+        {"class": BUNDLE.uri, "label": BUNDLE.label, "description": "b", "aliases": ["bundles", "studies"]},
+        {"class": FACTSHEET.uri, "label": FACTSHEET.label, "description": "f", "aliases": ["scenarios"]},
     ]
     llm = FakeLLM()
     llm.ambiguity = Clarification((BUNDLE, FACTSHEET))
@@ -527,4 +527,4 @@ def test_an_everyday_name_is_resolved_without_asking():
     )
     result = pipeline.answer("How many scenarios are there?")
     assert result.clarification is None and llm.ambiguity_calls == []
-    assert f'"scenario" means scenario factsheet ({FACTSHEET.uri})' in llm.last_grounding
+    assert f'"scenarios" means scenario factsheet ({FACTSHEET.uri})' in llm.last_grounding

@@ -151,8 +151,8 @@ def test_wording_never_makes_a_clear_question_ambiguous():
 
 # -- everyday names (aliases) ---------------------------------------------------
 
-BUNDLE = Option("oeo:A", "scenario bundle", "A collection of scenarios.", ("bundle", "study", "studien"))
-FACTSHEET = Option("oeo:B", "scenario factsheet", "Describes one scenario.", ("scenario", "szenarien"))
+BUNDLE = Option("oeo:A", "scenario bundle", "A collection of scenarios.", ("bundles", "studies", "studien"))
+FACTSHEET = Option("oeo:B", "scenario factsheet", "Describes one scenario.", ("scenarios", "szenarien"))
 REPORT = Option("oeo:R", "study report", "A report from a study.")
 REGION = Option("oeo:G", "study region", "The region a study covers.")
 TERMS = [BUNDLE, FACTSHEET, REPORT, REGION]
@@ -182,10 +182,10 @@ def test_an_everyday_name_names_its_term():
 
 def test_the_longest_name_wins_and_owns_its_words():
     # "scenario bundles" is the bundle, not also a factsheet called "scenario".
-    assert _mentioned("How many scenario bundles are there?") == [("scenario bundle", "scenario bundle", False)]
+    assert _mentioned("How many scenario bundles are there?") == [("scenario bundle", "scenario bundles", False)]
     # "study reports" and "study regions" are their own terms, not studies (bundles).
-    assert _mentioned("List the study reports.") == [("study report", "study report", False)]
-    assert _mentioned("Which study regions exist?") == [("study region", "study region", False)]
+    assert _mentioned("List the study reports.") == [("study report", "study reports", False)]
+    assert _mentioned("Which study regions exist?") == [("study region", "study regions", False)]
 
 
 def test_a_longer_name_outside_the_candidates_still_blocks_an_alias():
@@ -200,7 +200,8 @@ def test_a_condition_term_does_not_hide_the_counted_term():
 
 def test_the_alias_hint_tells_generation_what_an_everyday_name_means():
     hint = alias_hint("How many scenarios are there?", TERMS)
-    assert '"scenario" means scenario factsheet (oeo:B)' in hint
+    assert '"scenarios" means scenario factsheet (oeo:B)' in hint  # the user's own word
+    assert '"study" means scenario bundle (oeo:A)' in alias_hint("Which study used it?", TERMS)
     assert alias_hint("How many scenario bundles are there?", TERMS) == ""  # named by label
     assert alias_hint("Who wrote it?", TERMS) == ""
 

@@ -57,7 +57,7 @@
     {
         "class": "oeo:OEO_00000365",
         "label": "scenario factsheet",
-        "aliases": ["scenario", "szenario", "szenarien"],
+        "aliases": ["scenarios", "szenario", "szenarien"],
         "description": "'scenario factsheet' \"A scenario factsheet is a factsheet that contains information about a scenario.\" This is in the centre of all information about a single scenario. A bundle can have several."
     },
     {
@@ -158,7 +158,7 @@
     {
         "class": "oeo:OEO_00020227",
         "label": "scenario bundle",
-        "aliases": ["bundle", "study", "studie", "studien"],
+        "aliases": ["bundles", "studies", "studie", "studien"],
         "description": "'scenario bundle' \"A scenario bundle is an information content entity that connects information about a scenario study and the associated Scenario projections on the OEP via the OEKG.\" This is holding all the information about a study together including ist scenarios (scenario factsheet), publications (study report), framework (framework factsheet)and model (model factsheet) as parts of it. So if talked abotu studies about e. g. all studies with scenarios then this is meant and not a single study report. The bundle is the collection of all study reports and other information related to a study."
     },
     {

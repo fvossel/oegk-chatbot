@@ -189,13 +189,17 @@ def _stem(word: str) -> str:
     return word
 
 
+def _raw_words(text: str) -> list[str]:
+    return re.findall(r"[a-z0-9äöüß]+", text.lower())
+
+
 def _words(text: str) -> list[str]:
-    return [_stem(word) for word in re.findall(r"[a-z0-9äöüß]+", text.lower())]
+    return [_stem(word) for word in _raw_words(text)]
 
 
 @dataclass(frozen=True)
 class Mention:
-    """A term the question names, and the words it used for it."""
+    """A term the question names, and the words it used for it (as written, lower-cased)."""
 
     option: Option
     words: str
@@ -210,7 +214,8 @@ def term_mentions(question: str, terms: Iterable[Option]) -> list[Mention]:
     term whose alias is "scenario", and "study reports" names the study report,
     not the term whose alias is "study". Each word belongs to at most one term.
     """
-    tokens = _words(question)
+    raw = _raw_words(question)
+    tokens = [_stem(word) for word in raw]
     names = [
         (_words(name), option, name != option.label)
         for option in terms
@@ -227,7 +232,7 @@ def term_mentions(question: str, terms: Iterable[Option]) -> list[Mention]:
             if tokens[start : start + width] == words and not any(taken[i] for i in span):
                 for i in span:
                     taken[i] = True
-                found.append((start, Mention(option, " ".join(words), by_alias)))
+                found.append((start, Mention(option, " ".join(raw[start : start + width]), by_alias)))
     return [mention for _, mention in sorted(found, key=lambda item: item[0])]
 
 
