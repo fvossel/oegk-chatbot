@@ -38,8 +38,9 @@ class Option:
     uri: str
     label: str
     definition: str
-    # Everyday names users call the term by ("scenario" for scenario factsheet).
-    # They are data in classes.json, never rules in code.
+    # Everyday names users call the term by ("scenarios" for scenario factsheet),
+    # as data in classes.json and in English only: the models map other
+    # languages and spellings onto them, code never does.
     aliases: tuple[str, ...] = ()
     # What picking this option gets the user, in plain words and in the user's
     # language; written by the model per question, empty when unavailable.
@@ -150,11 +151,16 @@ def parse_clarification(
         return None
     if not isinstance(data, dict) or data.get("ambiguous") is not True:
         return None
+    by_id = {f"C{i}": option for i, option in enumerate(candidates, 1)}
+    # The model first maps the question's key noun onto a candidate's name, in
+    # whatever language or spelling it was asked; a match means it is settled,
+    # even if the model then contradicts itself.
+    if str(data.get("named")).strip().upper() in by_id:
+        return None
     named = data.get("options")
     if not isinstance(named, list):
         return None
 
-    by_id = {f"C{i}": option for i, option in enumerate(candidates, 1)}
     chosen: list[Option] = []
     for ref in named:
         # An option is "C1", or {"id": "C1", "gloss": "..."} with a plain-words gloss.
@@ -213,6 +219,8 @@ def term_mentions(question: str, terms: Iterable[Option]) -> list[Mention]:
     longest name wins: "scenario bundles" names the scenario bundle, not also the
     term whose alias is "scenario", and "study reports" names the study report,
     not the term whose alias is "study". Each word belongs to at most one term.
+    This is only the cheap exact pass; spelling variants, typos and other
+    languages are left to the model's ambiguity check, which sees the same names.
     """
     raw = _raw_words(question)
     tokens = [_stem(word) for word in raw]
@@ -232,7 +240,8 @@ def term_mentions(question: str, terms: Iterable[Option]) -> list[Mention]:
             if tokens[start : start + width] == words and not any(taken[i] for i in span):
                 for i in span:
                     taken[i] = True
-                found.append((start, Mention(option, " ".join(raw[start : start + width]), by_alias)))
+                surface = " ".join(raw[start : start + width])
+                found.append((start, Mention(option, surface, by_alias)))
     return [mention for _, mention in sorted(found, key=lambda item: item[0])]
 
 
@@ -252,25 +261,6 @@ def names_a_term(
     uris = {option.uri for option in candidates}
     terms = {option.uri: option for option in [*vocabulary, *candidates]}
     return any(mention.option.uri in uris for mention in term_mentions(question, terms.values()))
-
-
-def alias_hint(question: str, terms: Iterable[Option]) -> str:
-    """Tell generation which term an everyday name in the question stands for.
-
-    A user who asks for "scenarios" means the scenario factsheet; the guard above
-    knows that from the aliases, and the model writing the query must know it too.
-    """
-    lines = [
-        f'- "{mention.words}" means {mention.option.label} ({mention.option.uri})'
-        for mention in term_mentions(question, terms)
-        if mention.by_alias
-    ]
-    if not lines:
-        return ""
-    return (
-        "Everyday names in the request and the ontology terms they stand for, unless "
-        "the request says otherwise:\n" + "\n".join(lines)
-    )
 
 
 def clarified_question(question: str, choice: Choice) -> str:

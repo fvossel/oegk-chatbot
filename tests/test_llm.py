@@ -26,6 +26,12 @@ def test_compact_documents_collapses_domain_and_range_to_labels():
     assert out[1]["uri"] == "oeo:C"  # class id surfaced under "uri"
     assert "domain" not in out[1]
     assert "range" not in out[1]
+    assert "also_called" not in out[1]
+
+
+def test_compact_documents_pass_everyday_names_to_the_model():
+    docs = [{"class": "oeo:C", "label": "scenario factsheet", "description": "d", "aliases": ["scenarios"]}]
+    assert _compact_documents(docs)[0]["also_called"] == ["scenarios"]
 
 
 def test_compact_documents_skips_non_dicts():

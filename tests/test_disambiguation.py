@@ -2,7 +2,6 @@
 
 from oekg.disambiguation import (
     Option,
-    alias_hint,
     build_user_prompt,
     candidate_options,
     clarification_hint,
@@ -151,8 +150,8 @@ def test_wording_never_makes_a_clear_question_ambiguous():
 
 # -- everyday names (aliases) ---------------------------------------------------
 
-BUNDLE = Option("oeo:A", "scenario bundle", "A collection of scenarios.", ("bundles", "studies", "studien"))
-FACTSHEET = Option("oeo:B", "scenario factsheet", "Describes one scenario.", ("scenarios", "szenarien"))
+BUNDLE = Option("oeo:A", "scenario bundle", "A collection of scenarios.", ("bundles", "studies"))
+FACTSHEET = Option("oeo:B", "scenario factsheet", "Describes one scenario.", ("scenarios",))
 REPORT = Option("oeo:R", "study report", "A report from a study.")
 REGION = Option("oeo:G", "study region", "The region a study covers.")
 TERMS = [BUNDLE, FACTSHEET, REPORT, REGION]
@@ -173,11 +172,16 @@ def test_an_everyday_name_names_its_term():
         ("How many scenarios are there?", "scenario factsheet"),
         ("Which bundles use MESSAGEix?", "scenario bundle"),
         ("Which studies cover Germany?", "scenario bundle"),
-        ("Wie viele Szenarien gibt es?", "scenario factsheet"),
-        ("Welche Studien gibt es?", "scenario bundle"),
+        ("Which study used MESSAGEix?", "scenario bundle"),
     ):
         assert [m[0] for m in _mentioned(question)] == [label], question
         assert names_a_term(question, [BUNDLE, FACTSHEET]), question
+
+
+def test_other_languages_and_spellings_are_left_to_the_model():
+    # No word lists per language in code: these fall through to the model's check.
+    for question in ("Wie viele Szenarien gibt es?", "Wie viele Scenarien gibt es?", "Welche Studien gibt es?"):
+        assert not names_a_term(question, [BUNDLE, FACTSHEET]), question
 
 
 def test_the_longest_name_wins_and_owns_its_words():
@@ -196,14 +200,6 @@ def test_a_longer_name_outside_the_candidates_still_blocks_an_alias():
 def test_a_condition_term_does_not_hide_the_counted_term():
     mentioned = _mentioned("How many bundles have at least one scenario assigned?")
     assert [m[0] for m in mentioned] == ["scenario bundle", "scenario factsheet"]
-
-
-def test_the_alias_hint_tells_generation_what_an_everyday_name_means():
-    hint = alias_hint("How many scenarios are there?", TERMS)
-    assert '"scenarios" means scenario factsheet (oeo:B)' in hint  # the user's own word
-    assert '"study" means scenario bundle (oeo:A)' in alias_hint("Which study used it?", TERMS)
-    assert alias_hint("How many scenario bundles are there?", TERMS) == ""  # named by label
-    assert alias_hint("Who wrote it?", TERMS) == ""
 
 
 def test_plurals_fold_onto_singulars():
@@ -237,6 +233,18 @@ def test_a_missing_or_unusable_gloss_falls_back_to_empty():
     )
     assert [o.gloss for o in choice.options] == ["", "", ""]
     assert choice.all == ""
+
+
+def test_a_key_noun_the_model_mapped_onto_a_candidate_is_never_asked_about():
+    reply = (
+        '{"key_noun": "Scenarien", "english": "scenario", "named": "C2", "ambiguous": true, '
+        '"options": [{"id": "C1"}, {"id": "C2"}]}'
+    )
+    assert _choice(reply) is None
+    # An invented or empty mapping does not count as settled.
+    for named in ('"C9"', "null", '""'):
+        reply = f'{{"named": {named}, "ambiguous": true, "options": ["C1", "C2"]}}'
+        assert _choice(reply) is not None, named
 
 
 def test_an_invented_id_inside_an_object_is_still_dropped():

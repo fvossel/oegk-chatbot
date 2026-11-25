@@ -135,8 +135,10 @@ class AppConfig:
     # with its definition) instead of silently guessing. One extra short model
     # call per fresh question.
     disambiguation_enabled: bool = _env("OEKG_DISAMBIGUATION", "1") not in ("0", "false", "False")
-    # How many of the best-matching classes the model weighs against the question.
-    disambiguation_candidates: int = int(_env("OEKG_DISAMBIGUATION_CANDIDATES", "6"))
+    # How many classes the model weighs against the question, best matches first.
+    # The default covers every class (36 today): a word the model may not see a
+    # term for cannot be mapped onto it, whatever language it was asked in.
+    disambiguation_candidates: int = int(_env("OEKG_DISAMBIGUATION_CANDIDATES", "60"))
     # Upper bound on the choices offered to the user.
     disambiguation_max_options: int = int(_env("OEKG_DISAMBIGUATION_MAX_OPTIONS", "4"))
 

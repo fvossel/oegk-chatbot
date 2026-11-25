@@ -10,7 +10,7 @@ Ask natural-language questions about OEKG data and get answers backed by SPARQL 
 
 - **Natural language → SPARQL** over the OEKG, using retrieval-augmented generation against the ontology.
 - **Asks which term you mean** — when a question fits several ontology terms ("How many factsheets?" fits scenario, model and framework factsheets, with different counts), the chat offers those terms in plain words (the OEO/OEKG definition is in the tooltip) and continues with your pick, or with all of them, instead of guessing. It only asks when the answer would differ, never for a clear question, and stops asking for the session once you choose "decide for me".
-- **Knows everyday names** — `classes.json` lists the names users call a term by (`aliases`): "scenarios" means scenario factsheets, "bundles" and "studies" mean scenario bundles (not study reports). Singular and plural are matched alike. A question that uses such a name is not asked about, and the name is resolved for the model. A new default is a data change, not a code change.
+- **Knows everyday names** — `classes.json` lists the names users call a term by (`aliases`): "scenarios" means scenario factsheets, "bundles" and "studies" mean scenario bundles (not study reports). The names are listed once, in English; the model maps a question in any language or spelling onto them ("Scenarien", "scénarios", "estudios"), so no word lists per language live in code. A question that uses such a name is not asked about. A new default is a data change, not a code change.
 - **Answers in your language** — the summary, the query explanation, the bot's own replies and the "which term?" question are written in the language you asked in (English for English, German for German, and likewise for others). The language is judged by the model, not by code; ontology definitions, button labels of the interface and error messages stay English.
 - **Self-correcting queries** — if the endpoint rejects a query, the error is fed back to the model for a repair attempt; generated identifiers are also checked against the known vocabulary before execution.
 - **Interactive results** — answers come with a real, sortable table plus **CSV/Excel download** and clickable links to the underlying OEP resources.
@@ -156,7 +156,7 @@ All variables are optional except the three credentials. Defaults are shown.
 | `OEKG_MAX_INPUT_CHARS` | `2000` | Max length of a user question. |
 | `OEKG_PROMPT_CACHE_KEY` | _(empty)_ | Optional prompt-cache routing key. |
 | `OEKG_DISAMBIGUATION` | `1` | Ask which ontology term is meant when a question fits several. One extra short model call per fresh question. |
-| `OEKG_DISAMBIGUATION_CANDIDATES` | `6` | Best-matching classes the model weighs against the question. |
+| `OEKG_DISAMBIGUATION_CANDIDATES` | `60` | Classes the model weighs against the question, best matches first (the default covers all). |
 | `OEKG_DISAMBIGUATION_MAX_OPTIONS` | `4` | Upper bound on the choices offered. |
 | `OEKG_URI_VALIDATION` | `1` | Validate generated URIs against the vocabulary. |
 | `OEKG_NORMALISE_OUTPUT` | `1` | Strip stray markdown fences/labels from model output. |

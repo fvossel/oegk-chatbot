@@ -504,6 +504,16 @@ def test_a_question_that_names_its_term_is_answered_without_asking():
     assert llm.generate_calls == 1
 
 
+def test_every_class_is_weighed_best_matches_first():
+    org = {"class": "oeo:ORG", "label": "organisation", "description": "o"}
+    pipeline, llm = _ambiguity_pipeline()
+    pipeline._resources = _resources({d["class"]: d for d in [*CLASS_DOCS[:2], org]})
+    pipeline.answer("Which institutions are involved?")
+    (_dialogue, candidates), = llm.ambiguity_calls
+    # Retrieval ranked bundle and factsheet; organisation is still shown, after them.
+    assert [c.uri for c in candidates] == [BUNDLE.uri, FACTSHEET.uri, "oeo:ORG"]
+
+
 def test_choosing_all_options_asks_for_each_of_them():
     cache = FakeCache()
     pipeline, llm = _ambiguity_pipeline(cache=cache)
@@ -527,4 +537,4 @@ def test_an_everyday_name_is_resolved_without_asking():
     )
     result = pipeline.answer("How many scenarios are there?")
     assert result.clarification is None and llm.ambiguity_calls == []
-    assert f'"scenarios" means scenario factsheet ({FACTSHEET.uri})' in llm.last_grounding
+    assert llm.generate_calls == 1  # the model resolves the name from the also_called list

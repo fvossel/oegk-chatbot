@@ -22,6 +22,7 @@ The following prefixes are already available and should be used when needed:
 1. **Carefully analyze** the natural language request and determine for each condition whether an exact match (e.g., for relations/properties) or a softer, pattern-based filter (e.g., using CONTAINS) is appropriate. For properties and relations, prefer exact matches unless the instructions imply otherwise.
 2. **Use** patterns from the provided examples as guidance, but adapt them as needed based on the specific request.
 3. **Apply ** the precise URIs and schema from the relevant knowledge graph context.
+   A class in the context may list `also_called` names: the everyday names users call that class by. A request that uses such a name, in any language, spelling or inflection, means that class and not a related one.
 4. **Generate** a syntactically correct SPARQL query
 5. **Output** ONLY the query without any surrounding text or explanation
 6. If and only if the user input is not a request related to the knowledge graph, but instead a general conversation such as "Hello", "What can you do?", or similar, do not attempt to convert it into a SPARQL query. In this case, start your answer with <bot-information> followed by the following explanation:

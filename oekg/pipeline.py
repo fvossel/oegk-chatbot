@@ -27,7 +27,6 @@ from oekg.disambiguation import (
     Choice,
     Clarification,
     Option,
-    alias_hint,
     candidate_options,
     clarification_hint,
     clarified_question,
@@ -305,7 +304,15 @@ class RagPipeline:
         """The choice to ask the user about, or ``None`` to just answer."""
         if not self._config.disambiguation_enabled:
             return None
-        candidates = candidate_options(top_k, self._config.disambiguation_candidates)
+        # The model can only map a word onto a term it is shown, so the ranking
+        # decides the order, not who is in: the best matches first, then every
+        # other class ("Institutionen" must find organisation even when the
+        # embedding ranked study terms higher).
+        ranked = [doc for doc in top_k if isinstance(doc, dict) and "class" in doc]
+        shown = {doc["class"] for doc in ranked}
+        rest = [doc for doc in self._resources.documents_dict.values()
+                if isinstance(doc, dict) and "class" in doc and doc["class"] not in shown]
+        candidates = candidate_options([*ranked, *rest], self._config.disambiguation_candidates)
         if names_a_term(question, candidates, self._terms()):
             return None  # the question already says which term it means
         with status("Checking what you mean..."):
@@ -455,14 +462,12 @@ class RagPipeline:
             if self._config.entity_grounding_enabled:
                 with status("Grounding entity names..."):
                     grounding = self._ground(question)
-            # The user's pick settles the term; otherwise everyday names in the
-            # question ("scenarios") are resolved to the terms they stand for.
-            hint = (
-                clarification_hint(clarification)
-                if clarification is not None
-                else alias_hint(question, self._terms())
-            )
-            grounding = "\n\n".join(part for part in (grounding, hint) if part)
+            # Without a pick, the model resolves everyday names itself: the class
+            # documents in its context list them as "also_called".
+            if clarification is not None:
+                grounding = "\n\n".join(
+                    part for part in (grounding, clarification_hint(clarification)) if part
+                )
             try:
                 with status("Generating SPARQL query..."):
                     sparql_query = self._gen(dialogue, top_k, grounding)
