@@ -2,12 +2,14 @@
 
 from oekg.disambiguation import (
     Option,
+    alias_hint,
     build_user_prompt,
     candidate_options,
     clarification_hint,
     clarified_question,
     names_a_term,
     parse_clarification,
+    term_mentions,
 )
 
 A = Option("oeo:A", "scenario bundle", "A collection of scenarios.")
@@ -78,6 +80,11 @@ def test_the_prompt_numbers_the_candidates_to_match_the_parser():
     assert "C1: scenario bundle" in prompt and "C3: author" in prompt and "Q?" in prompt
 
 
+def test_the_prompt_lists_the_everyday_names_of_a_candidate():
+    named = Option("oeo:B", "scenario factsheet", "Describes one scenario.", ("scenario",))
+    assert "C1: scenario factsheet (also called: scenario) -- " in build_user_prompt("Q?", [named])
+
+
 def test_the_clarified_question_and_hint_carry_the_choice():
     assert clarified_question("How many?", A) == "How many? (scenario bundle)"
     hint = clarification_hint(A)
@@ -140,3 +147,96 @@ def test_wording_is_flattened_to_one_line():
 
 def test_wording_never_makes_a_clear_question_ambiguous():
     assert _choice('{"ambiguous": false, "ask": "Which one?", "skip": "No"}') is None
+
+
+# -- everyday names (aliases) ---------------------------------------------------
+
+BUNDLE = Option("oeo:A", "scenario bundle", "A collection of scenarios.", ("bundle", "study", "studien"))
+FACTSHEET = Option("oeo:B", "scenario factsheet", "Describes one scenario.", ("scenario", "szenarien"))
+REPORT = Option("oeo:R", "study report", "A report from a study.")
+REGION = Option("oeo:G", "study region", "The region a study covers.")
+TERMS = [BUNDLE, FACTSHEET, REPORT, REGION]
+
+
+def _mentioned(question):
+    return [(m.option.label, m.words, m.by_alias) for m in term_mentions(question, TERMS)]
+
+
+def test_aliases_are_read_from_the_class_documents():
+    doc = {"class": "oeo:B", "label": "scenario factsheet", "description": "y", "aliases": ["scenario", " "]}
+    (option,) = candidate_options([doc], 1)
+    assert option.aliases == ("scenario",)
+
+
+def test_an_everyday_name_names_its_term():
+    for question, label in (
+        ("How many scenarios are there?", "scenario factsheet"),
+        ("Which bundles use MESSAGEix?", "scenario bundle"),
+        ("Which studies cover Germany?", "scenario bundle"),
+        ("Wie viele Szenarien gibt es?", "scenario factsheet"),
+        ("Welche Studien gibt es?", "scenario bundle"),
+    ):
+        assert [m[0] for m in _mentioned(question)] == [label], question
+        assert names_a_term(question, [BUNDLE, FACTSHEET]), question
+
+
+def test_the_longest_name_wins_and_owns_its_words():
+    # "scenario bundles" is the bundle, not also a factsheet called "scenario".
+    assert _mentioned("How many scenario bundles are there?") == [("scenario bundle", "scenario bundle", False)]
+    # "study reports" and "study regions" are their own terms, not studies (bundles).
+    assert _mentioned("List the study reports.") == [("study report", "study report", False)]
+    assert _mentioned("Which study regions exist?") == [("study region", "study region", False)]
+
+
+def test_a_longer_name_outside_the_candidates_still_blocks_an_alias():
+    # The candidates are bundle and factsheet only; "study reports" must not read as "studies".
+    assert not names_a_term("List the study reports.", [BUNDLE, FACTSHEET], vocabulary=TERMS)
+
+
+def test_a_condition_term_does_not_hide_the_counted_term():
+    mentioned = _mentioned("How many bundles have at least one scenario assigned?")
+    assert [m[0] for m in mentioned] == ["scenario bundle", "scenario factsheet"]
+
+
+def test_the_alias_hint_tells_generation_what_an_everyday_name_means():
+    hint = alias_hint("How many scenarios are there?", TERMS)
+    assert '"scenario" means scenario factsheet (oeo:B)' in hint
+    assert alias_hint("How many scenario bundles are there?", TERMS) == ""  # named by label
+    assert alias_hint("Who wrote it?", TERMS) == ""
+
+
+def test_plurals_fold_onto_singulars():
+    assert names_a_term("Which studies exist?", [BUNDLE])
+    assert names_a_term("Which bundles exist?", [BUNDLE])
+
+
+# -- "all of these" and plain-words options --------------------------------------
+
+
+def test_all_options_can_be_chosen_together():
+    assert clarified_question("How many?", (A, B)) == "How many? (scenario bundle, scenario factsheet)"
+    hint = clarification_hint([A, B])
+    assert A.uri in hint and B.uri in hint and "separately" in hint
+    assert clarified_question("How many?", (A,)) == clarified_question("How many?", A)
+
+
+def test_options_may_carry_a_plain_words_gloss_and_an_all_label():
+    choice = _choice(
+        '{"ambiguous": true, "options": [{"id": "C1", "gloss": "Studien mit mehreren Szenarien"}, '
+        '{"id": "c2", "gloss": "einzelne Szenarien"}], "all": "Alle davon", "skip": "Keiner"}'
+    )
+    assert [o.uri for o in choice.options] == [A.uri, B.uri]
+    assert [o.gloss for o in choice.options] == ["Studien mit mehreren Szenarien", "einzelne Szenarien"]
+    assert choice.all == "Alle davon" and choice.skip == "Keiner"
+
+
+def test_a_missing_or_unusable_gloss_falls_back_to_empty():
+    choice = _choice(
+        '{"ambiguous": true, "options": [{"id": "C1"}, {"id": "C2", "gloss": ["x"]}, "C3"]}'
+    )
+    assert [o.gloss for o in choice.options] == ["", "", ""]
+    assert choice.all == ""
+
+
+def test_an_invented_id_inside_an_object_is_still_dropped():
+    assert _parse('{"ambiguous": true, "options": [{"id": "C1"}, {"id": "C9"}]}') == []

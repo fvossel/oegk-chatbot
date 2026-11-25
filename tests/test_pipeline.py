@@ -502,3 +502,29 @@ def test_a_question_that_names_its_term_is_answered_without_asking():
     assert result.clarification is None
     assert llm.ambiguity_calls == []  # not even the model was consulted
     assert llm.generate_calls == 1
+
+
+def test_choosing_all_options_asks_for_each_of_them():
+    cache = FakeCache()
+    pipeline, llm = _ambiguity_pipeline(cache=cache)
+    result = pipeline.answer("How many scenarios are there?", clarification=(BUNDLE, FACTSHEET))
+    assert result.clarification is None and llm.ambiguity_calls == []
+    assert cache.looked_up == ["How many scenarios are there? (scenario bundle, scenario factsheet)"]
+    assert BUNDLE.uri in llm.last_grounding and FACTSHEET.uri in llm.last_grounding
+
+
+def test_an_everyday_name_is_resolved_without_asking():
+    # The real classes.json says "scenario" is what users call a scenario factsheet.
+    docs = [
+        {"class": BUNDLE.uri, "label": BUNDLE.label, "description": "b", "aliases": ["bundle", "study"]},
+        {"class": FACTSHEET.uri, "label": FACTSHEET.label, "description": "f", "aliases": ["scenario"]},
+    ]
+    llm = FakeLLM()
+    llm.ambiguity = Clarification((BUNDLE, FACTSHEET))
+    pipeline = _build(
+        FakeCache(), llm, FakeOEP(pd.DataFrame({"n": [1]})),
+        resources=_resources({d["class"]: d for d in docs}), retriever=FakeRetriever(docs),
+    )
+    result = pipeline.answer("How many scenarios are there?")
+    assert result.clarification is None and llm.ambiguity_calls == []
+    assert f'"scenario" means scenario factsheet ({FACTSHEET.uri})' in llm.last_grounding

@@ -9,11 +9,12 @@ Ask natural-language questions about OEKG data and get answers backed by SPARQL 
 ## ✨ Features
 
 - **Natural language → SPARQL** over the OEKG, using retrieval-augmented generation against the ontology.
-- **Asks which term you mean** — when a question fits several ontology terms ("How many scenarios?" fits both a scenario factsheet and a scenario bundle, with different counts), the chat offers those terms with their OEO/OEKG definitions and continues with your pick instead of guessing. It only asks when the answer would differ, never for a clear question, and stops asking for the session once you choose "decide for me".
+- **Asks which term you mean** — when a question fits several ontology terms ("How many factsheets?" fits scenario, model and framework factsheets, with different counts), the chat offers those terms in plain words (the OEO/OEKG definition is in the tooltip) and continues with your pick, or with all of them, instead of guessing. It only asks when the answer would differ, never for a clear question, and stops asking for the session once you choose "decide for me".
+- **Knows everyday names** — `classes.json` lists the names users call a term by (`aliases`): "scenario" means a scenario factsheet, "bundle" and "study" a scenario bundle (not a study report). A question that uses such a name is not asked about, and the name is resolved for the model. A new default is a data change, not a code change.
 - **Answers in your language** — the summary, the query explanation, the bot's own replies and the "which term?" question are written in the language you asked in (English for English, German for German, and likewise for others). The language is judged by the model, not by code; ontology definitions, button labels of the interface and error messages stay English.
 - **Self-correcting queries** — if the endpoint rejects a query, the error is fed back to the model for a repair attempt; generated identifiers are also checked against the known vocabulary before execution.
 - **Interactive results** — answers come with a real, sortable table plus **CSV/Excel download** and clickable links to the underlying OEP resources.
-- **Inspectable SPARQL** — the generated query lives in a collapsible panel with copy-to-clipboard and an on-demand plain-language explanation.
+- **Inspectable SPARQL** — the generated query is shown open next to every answer, so it gets checked rather than trusted, with copy-to-clipboard and an on-demand plain-language explanation.
 - **Saved questions** — re-run previously answered questions instantly from a shared, file-backed cache; add or curate entries manually.
 - **Live OEP data** — when a result references an OEP dataset, load (on demand) a preview of the **actual table rows** plus an OEMetadata card (units, time/region coverage, license & attribution, sources); OEO ontology terms link to their authoritative definitions.
 

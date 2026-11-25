@@ -24,8 +24,10 @@ from oekg.cache import CacheEntry, QueryCache
 from oekg.config import AppConfig, get_config
 from oekg.dataapi import OEPDataClient
 from oekg.disambiguation import (
+    Choice,
     Clarification,
     Option,
+    alias_hint,
     candidate_options,
     clarification_hint,
     clarified_question,
@@ -113,6 +115,7 @@ class RagPipeline:
         self._known_vocab: set[str] | None = None
         self._label_index: dict[str, str] | None = None
         self._relation_schema: dict[str, dict[str, Any]] | None = None
+        self._class_terms: list[Option] | None = None
 
         # Collaborators default to real implementations but can be injected
         # (e.g. for testing). Both clients are reused across requests. They are
@@ -265,6 +268,13 @@ class RagPipeline:
             self._relation_schema = build_relation_schema(self._resources)
         return self._relation_schema
 
+    def _terms(self) -> list[Option]:
+        """Every ontology class as a term, with its label and aliases."""
+        if self._class_terms is None:
+            docs = list(self._resources.documents_dict.values())
+            self._class_terms = candidate_options(docs, len(docs))
+        return self._class_terms
+
     # -- generation + grounding ------------------------------------------
     def _gen(self, prompt: str, top_k: list, grounding: str = "") -> str:
         """Generate SPARQL and normalise the raw output if enabled."""
@@ -296,7 +306,7 @@ class RagPipeline:
         if not self._config.disambiguation_enabled:
             return None
         candidates = candidate_options(top_k, self._config.disambiguation_candidates)
-        if names_a_term(question, candidates):
+        if names_a_term(question, candidates, self._terms()):
             return None  # the question already says which term it means
         with status("Checking what you mean..."):
             return self._llm.find_ambiguity(dialogue, candidates)
@@ -388,15 +398,15 @@ class RagPipeline:
         prefer_cache: bool = True,
         stream: bool = False,
         forced_sparql: str | None = None,
-        clarification: Option | None = None,
+        clarification: Choice | None = None,
         skip_clarification: bool = False,
     ) -> PipelineResult:
         """Answer ``question`` and return a :class:`PipelineResult`.
 
         A fresh question that could mean several ontology terms comes back as a
         result carrying ``clarification`` instead of an answer. Call again with
-        the user's pick as ``clarification``, or ``skip_clarification=True`` to
-        let the model decide.
+        the user's pick as ``clarification`` (one option, or all of them), or
+        ``skip_clarification=True`` to let the model decide.
         """
         if clarification is not None:
             # From here on the question carries the choice: the model sees it,
@@ -445,8 +455,14 @@ class RagPipeline:
             if self._config.entity_grounding_enabled:
                 with status("Grounding entity names..."):
                     grounding = self._ground(question)
-            if clarification is not None:
-                grounding = "\n\n".join(part for part in (grounding, clarification_hint(clarification)) if part)
+            # The user's pick settles the term; otherwise everyday names in the
+            # question ("scenarios") are resolved to the terms they stand for.
+            hint = (
+                clarification_hint(clarification)
+                if clarification is not None
+                else alias_hint(question, self._terms())
+            )
+            grounding = "\n\n".join(part for part in (grounding, hint) if part)
             try:
                 with status("Generating SPARQL query..."):
                     sparql_query = self._gen(dialogue, top_k, grounding)

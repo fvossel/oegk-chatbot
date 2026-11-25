@@ -18,14 +18,15 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
-from typing import Any, Iterable
+from dataclasses import dataclass, replace
+from typing import Any, Iterable, Sequence, Union
 
 # Definitions are long; the first sentences carry the meaning and keep the
 # prompt, and the choice list shown to the user, readable.
 _DEFINITION_CHARS = 320
 _ASK_CHARS = 240
 _SKIP_CHARS = 60
+_GLOSS_CHARS = 120
 _QUOTED_LEAD_RE = re.compile(r'^"([^"]*)"')
 _FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
 
@@ -37,19 +38,35 @@ class Option:
     uri: str
     label: str
     definition: str
+    # Everyday names users call the term by ("scenario" for scenario factsheet).
+    # They are data in classes.json, never rules in code.
+    aliases: tuple[str, ...] = ()
+    # What picking this option gets the user, in plain words and in the user's
+    # language; written by the model per question, empty when unavailable.
+    gloss: str = ""
+
+
+# A pick is one option, or several when the user wants all of them.
+Choice = Union[Option, Sequence[Option]]
+
+
+def as_options(choice: Choice) -> tuple[Option, ...]:
+    """The pick as a tuple of options, whatever form it came in."""
+    return (choice,) if isinstance(choice, Option) else tuple(choice)
 
 
 @dataclass(frozen=True)
 class Clarification:
     """The choice put to the user: the options and the words around them.
 
-    ``ask`` and ``skip`` are written by the model in the language the question
-    was asked in; empty means the caller falls back to its own wording.
+    ``ask``, ``skip`` and ``all`` are written by the model in the language the
+    question was asked in; empty means the caller falls back to its own wording.
     """
 
     options: tuple[Option, ...]
     ask: str = ""
     skip: str = ""
+    all: str = ""
 
 
 def candidate_options(documents: Iterable[Any], limit: int) -> list[Option]:
@@ -63,11 +80,13 @@ def candidate_options(documents: Iterable[Any], limit: int) -> list[Option]:
         if not isinstance(doc, dict) or "class" not in doc:
             continue
         label = str(doc.get("label") or doc["class"])
+        aliases = doc.get("aliases") or ()
         options.append(
             Option(
                 uri=str(doc["class"]),
                 label=label,
                 definition=_shorten(_tidy(str(doc.get("description") or ""), label)),
+                aliases=tuple(str(alias) for alias in aliases if str(alias).strip()),
             )
         )
         if len(options) >= limit:
@@ -97,12 +116,19 @@ def _shorten(text: str) -> str:
 
 def build_user_prompt(dialogue: str, candidates: list[Option]) -> str:
     """The user message of the ambiguity check; candidates are numbered C1, C2, ..."""
-    lines = [f"C{i}: {option.label} -- {option.definition}" for i, option in enumerate(candidates, 1)]
+    lines = [
+        f"C{i}: {option.label}{_also_called(option)} -- {option.definition}"
+        for i, option in enumerate(candidates, 1)
+    ]
     return (
         "Conversation (the last line is the question to judge):\n"
         f"{dialogue}\n\n"
         "Candidate ontology terms:\n" + "\n".join(lines)
     )
+
+
+def _also_called(option: Option) -> str:
+    return f" (also called: {', '.join(option.aliases)})" if option.aliases else ""
 
 
 def parse_clarification(
@@ -131,15 +157,18 @@ def parse_clarification(
     by_id = {f"C{i}": option for i, option in enumerate(candidates, 1)}
     chosen: list[Option] = []
     for ref in named:
-        option = by_id.get(str(ref).strip().upper())
-        if option is not None and option not in chosen:
-            chosen.append(option)
+        # An option is "C1", or {"id": "C1", "gloss": "..."} with a plain-words gloss.
+        ref_id, gloss = (ref.get("id"), ref.get("gloss")) if isinstance(ref, dict) else (ref, None)
+        option = by_id.get(str(ref_id).strip().upper())
+        if option is not None and all(option.uri != seen.uri for seen in chosen):
+            chosen.append(replace(option, gloss=_phrase(gloss, _GLOSS_CHARS)))
     if len(chosen) < 2:
         return None
     return Clarification(
         options=tuple(chosen[:max_options]),
         ask=_phrase(data.get("ask"), _ASK_CHARS),
         skip=_phrase(data.get("skip"), _SKIP_CHARS),
+        all=_phrase(data.get("all"), _SKIP_CHARS),
     )
 
 
@@ -152,42 +181,116 @@ def _phrase(value: Any, limit: int) -> str:
 
 
 def _stem(word: str) -> str:
-    """Fold a plural onto its singular ("factsheets" -> "factsheet")."""
+    """Fold a plural onto its singular ("factsheets" -> "factsheet", "studies" -> "study")."""
+    if len(word) > 4 and word.endswith("ies"):
+        return word[:-3] + "y"
     if len(word) > 3 and word.endswith("s") and not word.endswith("ss"):
         return word[:-1]
     return word
 
 
-def _words(text: str) -> str:
-    return " ".join(_stem(word) for word in re.findall(r"[a-z0-9]+", text.lower()))
+def _words(text: str) -> list[str]:
+    return [_stem(word) for word in re.findall(r"[a-z0-9äöüß]+", text.lower())]
 
 
-def names_a_term(question: str, candidates: Iterable[Option]) -> bool:
-    """Whether the question already uses one candidate term by its own name.
+@dataclass(frozen=True)
+class Mention:
+    """A term the question names, and the words it used for it."""
+
+    option: Option
+    words: str
+    by_alias: bool
+
+
+def term_mentions(question: str, terms: Iterable[Option]) -> list[Mention]:
+    """The terms the question names by their label or by one of their aliases.
+
+    Matching is on whole words, case-insensitive and plural-tolerant, and the
+    longest name wins: "scenario bundles" names the scenario bundle, not also the
+    term whose alias is "scenario", and "study reports" names the study report,
+    not the term whose alias is "study". Each word belongs to at most one term.
+    """
+    tokens = _words(question)
+    names = [
+        (_words(name), option, name != option.label)
+        for option in terms
+        for name in (option.label, *option.aliases)
+    ]
+    names = [entry for entry in names if entry[0]]
+    names.sort(key=lambda entry: (-len(entry[0]), -len(" ".join(entry[0]))))
+    taken = [False] * len(tokens)
+    found: list[tuple[int, Mention]] = []
+    for words, option, by_alias in names:
+        width = len(words)
+        for start in range(len(tokens) - width + 1):
+            span = range(start, start + width)
+            if tokens[start : start + width] == words and not any(taken[i] for i in span):
+                for i in span:
+                    taken[i] = True
+                found.append((start, Mention(option, " ".join(words), by_alias)))
+    return [mention for _, mention in sorted(found, key=lambda item: item[0])]
+
+
+def names_a_term(
+    question: str, candidates: Iterable[Option], vocabulary: Iterable[Option] = ()
+) -> bool:
+    """Whether the question already names one candidate term, by label or alias.
 
     "Which framework factsheets exist?" says which term it means; asking would be
-    noise. Matching is on whole words, case-insensitive, and plural-tolerant. This
-    is deliberately checked before the model is asked at all: it is cheaper, and a
-    model told to ask only when unsure still sometimes asks about sibling terms.
+    noise. ``vocabulary`` holds every known term, so that a longer name the
+    question uses ("study report") is not misread as a candidate's alias
+    ("study"). This is deliberately checked before the model is asked at all: it
+    is cheaper, and a model told to ask only when unsure still sometimes asks
+    about sibling terms.
     """
-    haystack = f" {_words(question)} "
-    return any(f" {_words(option.label)} " in haystack for option in candidates)
+    candidates = list(candidates)
+    uris = {option.uri for option in candidates}
+    terms = {option.uri: option for option in [*vocabulary, *candidates]}
+    return any(mention.option.uri in uris for mention in term_mentions(question, terms.values()))
 
 
-def clarified_question(question: str, option: Option) -> str:
+def alias_hint(question: str, terms: Iterable[Option]) -> str:
+    """Tell generation which term an everyday name in the question stands for.
+
+    A user who asks for "scenarios" means the scenario factsheet; the guard above
+    knows that from the aliases, and the model writing the query must know it too.
+    """
+    lines = [
+        f'- "{mention.words}" means {mention.option.label} ({mention.option.uri})'
+        for mention in term_mentions(question, terms)
+        if mention.by_alias
+    ]
+    if not lines:
+        return ""
+    return (
+        "Everyday names in the request and the ontology terms they stand for, unless "
+        "the request says otherwise:\n" + "\n".join(lines)
+    )
+
+
+def clarified_question(question: str, choice: Choice) -> str:
     """The question with the user's choice attached.
 
     This is also what the shared question cache is keyed on: a saved answer to
     "How many scenarios are there?" is only valid for the term it was asked
-    about, so the two readings must not share an entry.
+    about, so the readings must not share an entry.
     """
-    return f"{question} ({option.label})"
+    return f"{question} ({', '.join(option.label for option in as_options(choice))})"
 
 
-def clarification_hint(option: Option) -> str:
-    """The block injected into generation so the chosen term is used as defined."""
+def clarification_hint(choice: Choice) -> str:
+    """The block injected into generation so the chosen term(s) are used as defined."""
+    options = as_options(choice)
+    lines = "\n".join(f"- {option.label} ({option.uri}): {option.definition}" for option in options)
+    if len(options) == 1:
+        return (
+            "The user was asked which ontology term the request refers to and chose:\n"
+            f"{lines}\n"
+            "Build the query around exactly this class, not a similar one."
+        )
     return (
-        "The user was asked which ontology term the request refers to and chose:\n"
-        f"- {option.label} ({option.uri}): {option.definition}\n"
-        "Build the query around exactly this class, not a similar one."
+        "The user was asked which ontology term the request refers to and chose all of these:\n"
+        f"{lines}\n"
+        "Answer for each of these classes separately (for example one count or one list "
+        "per class, labelled with the class), not for a merged set."
     )

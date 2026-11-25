@@ -18,7 +18,7 @@ import streamlit as st
 
 from oekg.cache import QueryCache
 from oekg.config import get_config
-from oekg.disambiguation import Option, clarified_question
+from oekg.disambiguation import Choice, clarified_question
 from oekg.logging_setup import configure_logging, get_request_logger
 from oekg.pipeline import RagPipeline
 from oekg.privacy import (
@@ -45,6 +45,7 @@ APP_TITLE = "Ask OEKG"
 _XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 _CLARIFY_ASK = "Your question could mean several things. Which one do you mean?"
 _CLARIFY_SKIP = "None of these / decide for me"
+_CLARIFY_ALL = "All of these"
 _CORRECTION_NOTE = "ℹ️ The query was automatically refined before returning these results."
 
 
@@ -128,8 +129,12 @@ def render_results_table(df: pd.DataFrame, turn_id: str) -> None:
 def render_sparql_panel(
     full_query: str, turn_id: str, pipeline: RagPipeline, question: str = ""
 ) -> None:
-    """Show the generated SPARQL in a collapsible, copyable panel with an explainer."""
-    with st.expander("🔍 Show the SPARQL query"):
+    """Show the generated SPARQL in a copyable panel with an explainer.
+
+    The panel starts open: the query is what the user checks the answer against,
+    so it should be read, not just trusted.
+    """
+    with st.expander("🔍 The SPARQL query", expanded=True):
         st.code(full_query, language="sparql")
         explanation_key = f"explanation_{turn_id}"
         if st.button("🧠 Explain this query in plain language", key=f"explain_{turn_id}"):
@@ -256,7 +261,7 @@ def handle_question(
     pipeline: RagPipeline,
     prefer_cache: bool = True,
     forced_sparql: str | None = None,
-    clarification: Option | None = None,
+    clarification: Choice | None = None,
     skip_clarification: bool = False,
 ) -> None:
     """Run a question through the pipeline and update the chat history/UI."""
@@ -590,20 +595,31 @@ try:
     clarify = st.session_state.get("clarify_pending")
     if clarify:
         clarify_slot = st.empty()
-        picked: Option | None = None
+        picked: Choice | None = None
+        choice = clarify["choice"]
         with clarify_slot.container():
             with st.chat_message("user"):
                 st.markdown(clarify["question"])
             with st.chat_message("assistant"):
-                st.markdown(clarify["choice"].ask or _CLARIFY_ASK)
-                for index, option in enumerate(clarify["choice"].options):
+                st.markdown(choice.ask or _CLARIFY_ASK)
+                # Plain words first; the ontology term is named for those who know
+                # it, and its definition waits in the tooltip.
+                for index, option in enumerate(choice.options):
+                    label = f"{option.gloss} ({option.label})" if option.gloss else option.label
                     if st.button(
-                        option.label, key=f"clarify_{index}", use_container_width=True
+                        label,
+                        key=f"clarify_{index}",
+                        help=option.definition or None,
+                        use_container_width=True,
                     ):
                         picked = option
-                    st.caption(option.definition)
-                skipped = st.button(
-                    clarify["choice"].skip or _CLARIFY_SKIP, key="clarify_skip"
+                all_col, skip_col = st.columns(2)
+                if all_col.button(
+                    choice.all or _CLARIFY_ALL, key="clarify_all", use_container_width=True
+                ):
+                    picked = choice.options
+                skipped = skip_col.button(
+                    choice.skip or _CLARIFY_SKIP, key="clarify_skip", use_container_width=True
                 )
         if picked is not None or skipped:
             clarify_slot.empty()

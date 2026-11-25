@@ -67,17 +67,27 @@ _AMBIGUITY_PROMPT = (
     "not a data question (a greeting, thanks, a question about the bot or about the "
     "knowledge graph as a whole rather than one kind of thing); or the "
     "candidates merely share a topic without being alternatives for the same question.\n"
-    "A candidate whose label is the question's key noun (or its plural, or a translation "
-    "of it) is the one meant; terms that are merely related to it are not alternatives.\n"
+    "A candidate whose label or one of its other names (listed as \"also called\") is the "
+    "question's key noun (or its plural, or a translation of it) is the one meant; terms "
+    "that are merely related to it are not alternatives.\n"
+    "Only the thing the answer counts or lists can make a question ambiguous. A term that "
+    "only appears in a condition on it (\"bundles with at least one scenario\") is fixed "
+    "by its relation to that thing and is not an alternative.\n"
     "Asking costs the user a click and a needless question is an annoyance, so when you "
     "are unsure whether the question is ambiguous, answer {\"ambiguous\": false}.\n\n"
     "Reply with JSON only, no other text: {\"ambiguous\": false} or "
-    "{\"ambiguous\": true, \"options\": [\"C1\", \"C3\"], \"language\": \"...\", "
-    "\"ask\": \"...\", \"skip\": \"...\"} naming the 2-4 candidates that are the real "
+    "{\"ambiguous\": true, \"language\": \"...\", \"options\": [{\"id\": \"C1\", "
+    "\"gloss\": \"...\"}, {\"id\": \"C3\", \"gloss\": \"...\"}], \"ask\": \"...\", "
+    "\"skip\": \"...\", \"all\": \"...\"} naming the 2-4 candidates that are the real "
     "alternatives. \"language\" is the language of the user's last question, named in "
-    "English; \"ask\" is one short sentence asking the user which of the options they "
-    "mean and \"skip\" is a 2-5 word button label meaning \"none of these, you decide\"; "
-    "write both in " + _LANGUAGE_RULE + ", i.e. in the language you named."
+    "English; everything after it is written in that language, the glosses included. "
+    "Each \"gloss\" says in 2-8 plain words what the user gets with that option, "
+    "for someone who does not know the ontology (no ontology jargon, e.g. \"single "
+    "scenarios\" versus \"studies that group several scenarios\"). \"ask\" is one short "
+    "sentence asking the user which of the options they mean, \"skip\" is a 2-5 word "
+    "button label meaning \"none of these, you decide\" and \"all\" is a 2-5 word button "
+    "label meaning \"all of these\". Write every gloss, \"ask\", \"skip\" and \"all\" in "
+    + _LANGUAGE_RULE + ", i.e. in the language you named."
 )
 
 _EXPLAIN_PROMPT = (
@@ -168,7 +178,7 @@ def strip_reasoning_stream(chunks: Iterable[str]) -> Iterator[str]:
 def _compact_documents(documents: list[Any]) -> list[dict[str, Any]]:
     """Shrink ontology docs for the prompt.
 
-    Keeps ``uri``/``label``/``description`` but collapses the (potentially huge)
+    Keeps ``uri``/``label``/``description`` (and ``aliases`` as ``also_called``) but collapses the (potentially huge)
     nested ``domain``/``range`` lists of ``{uri, label}`` objects down to plain
     label lists -- the URIs there are noise for generation and bloat the prompt.
     """
@@ -180,6 +190,8 @@ def _compact_documents(documents: list[Any]) -> list[dict[str, Any]]:
             "uri": doc.get("uri") or doc.get("class"),
             "label": doc.get("label"),
         }
+        if doc.get("aliases"):
+            item["also_called"] = list(doc["aliases"])
         if doc.get("description"):
             item["description"] = doc["description"]
         for key in ("domain", "range"):
