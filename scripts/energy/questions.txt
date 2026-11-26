@@ -1,0 +1,29 @@
+# Questions for the energy measurement (scripts/energy/measure.py).
+# A mix of what the chat is asked: lists, counts, filters, follow-up style
+# questions, German and English, one greeting and some that trigger a
+# clarification. One question per line; lines starting with # are ignored.
+Give me all bundles in which institution Fraunhofer ISI was involved.
+Which scenario bundles cover the industry sector?
+Please give me all Bundles that provide scenarios for the year 2055.
+How many scenarios are there?
+Wie viele Studien gibt es?
+Which models are used in the scenario bundles?
+Welche Szenarien betrachten Deutschland als Studienregion?
+Which bundles were funded by the BMWK?
+List all authors of study reports.
+Which scenarios use the model MESSAGEix?
+Welche Bundles wurden nach 2020 veröffentlicht?
+How many datasets are linked to scenarios?
+Which study regions are covered by the scenarios?
+Which bundles contain scenarios with a climate neutrality target?
+Welche Sektoren deckt das Bundle zu den NGFS Szenarien ab?
+Which scenarios have the scenario year 2045?
+How many bundles have at least one scenario assigned?
+Which institutions are involved in the most bundles?
+Wie viele Factsheets gibt es?
+Which scenario bundles cover both the electricity and the heat sector?
+Give me the input datasets of the scenarios in the bundle Langfristszenarien.
+Which interacting regions are used in the scenarios?
+Wer ist die Kontaktperson für die Ariadne-Szenarien?
+Which bundles include more than five scenarios?
+Hello, what can you do?
